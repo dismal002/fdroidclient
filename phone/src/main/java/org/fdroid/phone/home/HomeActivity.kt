@@ -1,10 +1,17 @@
 package org.fdroid.phone.home
 
+import android.app.Dialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.ViewGroup
+import android.view.Window
+import android.view.WindowManager
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -52,6 +59,7 @@ class HomeActivity : AppCompatActivity() {
     private var selectedTab = R.id.tab_apps
     private lateinit var indexStatus: TextView
     private var syncRequested = false
+    private var syncDialog: Dialog? = null
     private lateinit var chips: LinearLayout
 
     private var cards: List<AppCard> = emptyList()
@@ -84,6 +92,7 @@ class HomeActivity : AppCompatActivity() {
         categoriesScroll = findViewById(R.id.categories_scroll)
         categoriesList = findViewById(R.id.categories_list)
         indexStatus = findViewById(R.id.index_status)
+        applyTabletChrome()
         indexStatus.setOnClickListener { Fdroid.sync(this) }
         Fdroid.syncState.observe(this) { renderIndexStatus() }
 
@@ -126,7 +135,13 @@ class HomeActivity : AppCompatActivity() {
     private fun renderIndexStatus() {
         if (cards.isNotEmpty()) {
             indexStatus.visibility = View.GONE
+            dismissSyncDialog()
             return
+        }
+        if (Fdroid.syncState.value is Fdroid.SyncState.Running) {
+            showSyncDialog()
+        } else {
+            dismissSyncDialog()
         }
         indexStatus.visibility = View.VISIBLE
         when (val state = Fdroid.syncState.value) {
@@ -145,6 +160,68 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    /** The store's "Please wait" card, shown only while the first index download runs. */
+    private fun showSyncDialog() {
+        if (syncDialog?.isShowing == true || isFinishing) return
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        dialog.setContentView(R.layout.dialog_sync_progress)
+        dialog.setCancelable(false)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setDimAmount(0.55f)
+        }
+        dialog.show()
+        val width = minOf(dp(360), (resources.displayMetrics.widthPixels * 0.9f).toInt())
+        dialog.window?.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        syncDialog = dialog
+    }
+
+    private fun dismissSyncDialog() {
+        syncDialog?.dismiss()
+        syncDialog = null
+    }
+
+    /**
+     * Tablets get the store's large-screen chrome: a narrow, centred search box
+     * with the tabs and category chips centred underneath it.
+     */
+    private fun applyTabletChrome() {
+        if (!isTablet) return
+        val field = findViewById<View>(R.id.search_field)
+        val params = field.layoutParams as LinearLayout.LayoutParams
+        params.width = dp(480)
+        params.height = dp(56)
+        params.gravity = Gravity.CENTER_HORIZONTAL
+        params.topMargin = dp(16)
+        params.bottomMargin = dp(8)
+        params.marginStart = 0
+        params.marginEnd = 0
+        field.layoutParams = params
+
+        tabsRow.gravity = Gravity.CENTER_HORIZONTAL
+        (tabApps.layoutParams as LinearLayout.LayoutParams).marginStart = 0
+        tabApps.textSize = 15f
+        tabCategories.textSize = 15f
+
+        findViewById<HorizontalScrollView>(R.id.chips_scroll).isFillViewport = true
+        chips.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+        )
+        chips.gravity = Gravity.CENTER_HORIZONTAL
+    }
+
+    private fun sidePadding(): Int = if (isTablet) dp(48) else dp(16)
+
+    private fun cardWidth(): Int {
+        if (!isTablet) return dp(132)
+        val available = resources.displayMetrics.widthPixels - sidePadding() * 2
+        val gap = dp(16)
+        return ((available - gap * 4) / 5).coerceAtLeast(dp(160))
+    }
+
     private fun renderChips() {
         chips.removeAllViews()
         val categories = cards.flatMap { it.categories }
@@ -155,6 +232,7 @@ class HomeActivity : AppCompatActivity() {
             .sortedByDescending { it.value }
             .map { it.key }
             .take(8)
+        chips.setPadding(sidePadding() - dp(4), 0, sidePadding() - dp(4), 0)
         categories.forEach { category ->
             val chip = TextView(this)
             chip.text = category
@@ -209,12 +287,14 @@ class HomeActivity : AppCompatActivity() {
         header.findViewById<View>(R.id.section_more).setOnClickListener {
             openSection(section.title, section.cards)
         }
+        val side = sidePadding()
+        header.setPadding(side, header.paddingTop, side, header.paddingBottom)
         rows.addView(header)
 
         val scroller = HorizontalScrollView(this)
         scroller.isHorizontalScrollBarEnabled = false
         scroller.clipToPadding = false
-        scroller.setPadding(dp(16), 0, dp(16), 0)
+        scroller.setPadding(side, 0, side, 0)
         val strip = LinearLayout(this)
         strip.orientation = LinearLayout.HORIZONTAL
         scroller.addView(strip)
@@ -222,8 +302,8 @@ class HomeActivity : AppCompatActivity() {
         section.cards.take(20).forEach { card ->
             val view = LayoutInflater.from(this).inflate(R.layout.item_phone_card, strip, false)
             bindCard(view, card)
-            val params = LinearLayout.LayoutParams(dp(132), LinearLayout.LayoutParams.WRAP_CONTENT)
-            params.marginEnd = dp(12)
+            val params = LinearLayout.LayoutParams(cardWidth(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            params.marginEnd = if (isTablet) dp(16) else dp(12)
             view.layoutParams = params
             view.setOnClickListener { openDetails(card) }
             strip.addView(view)
@@ -289,6 +369,9 @@ class HomeActivity : AppCompatActivity() {
     )
 
     private var selectedDrawer = DRAWER_APPS
+
+    private val isTablet: Boolean
+        get() = resources.configuration.smallestScreenWidthDp >= 600
 
     private fun buildDrawer() {
         drawerItems.removeAllViews()
@@ -373,6 +456,11 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        dismissSyncDialog()
+        super.onDestroy()
+    }
+
     override fun onBackPressed() {
         if (drawer.isDrawerOpen(Gravity.START)) {
             drawer.closeDrawers()
@@ -407,6 +495,9 @@ class HomeActivity : AppCompatActivity() {
 
     private fun renderCategories() {
         categoriesList.removeAllViews()
+        val side = sidePadding()
+        categoriesList.setPadding(side, dp(12), side, dp(12))
+        val columns = if (isTablet) 4 else 2
         val counts = cards.flatMap { it.categories }
             .filterNot { it.endsWith("Game") }
             .groupingBy { it }
@@ -415,7 +506,7 @@ class HomeActivity : AppCompatActivity() {
             .sortedByDescending { it.value }
         var row: LinearLayout? = null
         counts.forEachIndexed { index, entry ->
-            if (index % 2 == 0) {
+            if (index % columns == 0) {
                 row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     layoutParams = LinearLayout.LayoutParams(
@@ -431,7 +522,7 @@ class HomeActivity : AppCompatActivity() {
                 setPadding(dp(14), dp(14), dp(14), dp(14))
                 layoutParams = LinearLayout.LayoutParams(
                     0, dp(86), 1f
-                ).apply { marginEnd = if (index % 2 == 0) dp(10) else 0 }
+                ).apply { marginEnd = if (index % columns == columns - 1) 0 else dp(10) }
                 setOnClickListener { openCategory(entry.key) }
             }
             tile.addView(TextView(this).apply {

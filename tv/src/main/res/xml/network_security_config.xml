@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!-- Trust manually installed certificates as well as the system ones, so a
-         user-installed CA (for an intercepting proxy or a self-signed repo) works. -->
+    <!-- Android TV does not let users install their own certificates, so the
+         ISRG Root X1 anchor (Let's Encrypt) ships with the app. User anchors stay
+         trusted as well, for proxies and self-signed repositories. -->
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
             <certificates src="user" />
+            <certificates src="@raw/isrgrootx1" />
         </trust-anchors>
     </base-config>
 </network-security-config>

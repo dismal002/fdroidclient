@@ -52,18 +52,25 @@ class SectionListActivity : AppCompatActivity() {
         val packages = intent.getStringArrayExtra(EXTRA_PACKAGES)?.toSet().orEmpty()
         val category = intent.getStringExtra(EXTRA_CATEGORY)
 
+        // "My apps & games" is looked up straight from the installed packages:
+        // the overview query is capped, so older apps would silently go missing.
+        if (category == null && packages.isNotEmpty()) {
+            Fdroid.db.getAppDao().getInstalledAppListItems(packageManager).observe(this) { items ->
+                lifecycleScope.launch {
+                    val cards = repository.installedCards(items, Fdroid.updatableApps())
+                        .sortedBy { it.name.lowercase() }
+                    render(cards)
+                }
+            }
+            return
+        }
+
         repository.overview().observe(this) { items ->
             lifecycleScope.launch {
                 val updates = Fdroid.updatableApps()
                 val installed = repository.installedPackages()
                 val cards = repository.buildCards(items, updates, installed)
-                    .filter { card ->
-                        when {
-                            category != null -> card.categories.contains(category)
-                            packages.isNotEmpty() -> packages.contains(card.packageName)
-                            else -> true
-                        }
-                    }
+                    .filter { card -> category == null || card.categories.contains(category) }
                     .sortedBy { it.name.lowercase() }
                 render(cards)
             }

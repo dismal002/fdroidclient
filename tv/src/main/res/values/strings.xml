@@ -4,7 +4,6 @@
     <string name="brand">F-Droid</string>
 
     <string name="guide_home">Home</string>
-    <string name="guide_games">Games</string>
     <string name="guide_my_apps">My Apps</string>
     <string name="guide_settings">Settings</string>
     <string name="guide_search">Search</string>
@@ -50,6 +49,7 @@
     <string name="my_apps_empty">Apps you install from F-Droid will appear here.</string>
 
     <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
     <string name="settings_general">General</string>
     <string name="settings_update_index">Update index</string>
     <string name="settings_build_version">Build version</string>
@@ -125,4 +125,15 @@
     <string name="antifeature_disabled_algorithm_desc">This app is signed with an algorithm that is no longer considered secure</string>
     <string name="antifeature_weak_signature_desc">This app is signed with a weak key</string>
     <string name="antifeature_generic_desc">F-Droid flags this app for this anti-feature</string>
+    <string name="settings_repositories">Repositories</string>
+    <string name="settings_add_repository">Add repository</string>
+    <string name="settings_add_repository_summary">URL and signing certificate fingerprint</string>
+    <string name="repo_url_hint">https://example.org/fdroid/repo</string>
+    <string name="repo_fingerprint_hint">SHA-256 signing fingerprint</string>
+    <string name="repo_disabled">disabled</string>
+    <string name="repo_enable">Enable</string>
+    <string name="repo_disable">Disable</string>
+    <string name="repo_remove">Remove</string>
+    <string name="repo_remove_confirm">Remove %1$s? Its apps and metadata are deleted from this device.</string>
+    <string name="repo_invalid">Enter the repository URL and its 64-character signing fingerprint.</string>
 </resources>

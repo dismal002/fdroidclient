@@ -239,21 +239,6 @@ class AppRepository(private val context: Context) {
         return rows
     }
 
-    fun gamesRows(cards: List<AppCard>): List<TvRow> {
-        val games = cards.filter { it.isGame }
-        val rows = ArrayList<TvRow>()
-        rows.addIfNotEmpty(context.getString(R.string.row_games), games.take(24))
-        rows.addIfNotEmpty(
-            context.getString(R.string.row_recently_updated),
-            games.sortedByDescending { it.lastUpdated }.take(24),
-        )
-        rows.addIfNotEmpty(
-            context.getString(R.string.row_new),
-            games.sortedByDescending { it.added }.take(24),
-        )
-        return rows
-    }
-
     fun myAppsRows(cards: List<AppCard>): List<TvRow> {
         val updates = cards.filter { it.installed && it.updateAvailable }
         val installed = cards.filter { it.installed }.sortedBy { it.name.lowercase() }

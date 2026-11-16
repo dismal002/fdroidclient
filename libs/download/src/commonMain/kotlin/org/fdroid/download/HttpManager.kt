@@ -39,7 +39,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.ByteArrayOutputStream
 import kotlin.coroutines.cancellation.CancellationException
 
-internal expect fun getHttpClientEngineFactory(customDns: Dns?): HttpClientEngineFactory<*>
+internal expect fun getHttpClientEngineFactory(
+    customDns: Dns?,
+    extraTrustAnchors: List<ByteArray>,
+): HttpClientEngineFactory<*>
 
 public open class HttpManager @JvmOverloads constructor(
     private val userAgent: String,
@@ -48,8 +51,10 @@ public open class HttpManager @JvmOverloads constructor(
     customDns: Dns? = null,
     private val highTimeouts: Boolean = false,
     private val mirrorChooser: MirrorChooser = MirrorChooserRandom(),
+    private val extraTrustAnchors: List<ByteArray> = emptyList(),
     private val httpClientEngineFactory: HttpClientEngineFactory<*> = getHttpClientEngineFactory(
-        customDns
+        customDns,
+        extraTrustAnchors,
     ),
 ) {
 

@@ -28,13 +28,12 @@ import org.fdroid.tv.settings.SettingsActivity
  */
 class BrowseActivity : FragmentActivity() {
 
-    private enum class Screen { HOME, GAMES, MY_APPS, SETTINGS }
+    private enum class Screen { HOME, MY_APPS, SETTINGS }
 
     private data class GuideEntry(val titleRes: Int, val iconRes: Int, val screen: Screen)
 
     private val guideEntries = listOf(
         GuideEntry(R.string.guide_home, R.drawable.ic_rail_home, Screen.HOME),
-        GuideEntry(R.string.guide_games, R.drawable.ic_games, Screen.GAMES),
         GuideEntry(R.string.guide_my_apps, R.drawable.ic_rail_myapps, Screen.MY_APPS),
         GuideEntry(R.string.guide_settings, R.drawable.ic_rail_settings, Screen.SETTINGS),
     )
@@ -208,7 +207,6 @@ class BrowseActivity : FragmentActivity() {
     private fun render() {
         val rows = when (screen) {
             Screen.HOME -> repository.homeRows(cards)
-            Screen.GAMES -> repository.gamesRows(cards)
             Screen.MY_APPS -> repository.myAppsRows(installedCards)
             Screen.SETTINGS -> emptyList()
         }

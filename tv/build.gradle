@@ -66,6 +66,9 @@ dependencies {
     // 1.0.0 is the API level the 2015 Play Store for Android TV was built against,
     // so we get the exact row/header/card behaviour of that era.
     implementation 'androidx.leanback:leanback:1.0.0'
+    // Native leanback preferences give the settings screen the platform look:
+    // the themed panel over the dimmed page, with system-styled rows.
+    implementation 'androidx.leanback:leanback-preference:1.0.0'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.palette:palette-ktx:1.0.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'

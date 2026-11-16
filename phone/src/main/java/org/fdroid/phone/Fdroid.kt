@@ -228,6 +228,36 @@ object Fdroid {
         }
     }
 
+    /** Adds a repository from a URL and its signing certificate fingerprint. */
+    suspend fun addRepository(
+        name: String,
+        address: String,
+        certificate: String,
+    ): Long = withContext(Dispatchers.IO) {
+        val repoId = db.getRepositoryDao().insert(
+            InitialRepository(
+                name = name,
+                address = address,
+                description = "",
+                certificate = certificate.replace(" ", "").replace(":", "").lowercase(),
+                version = 0,
+                enabled = true,
+            ),
+        )
+        refreshRepositories()
+        repoId
+    }
+
+    suspend fun setRepositoryEnabled(repoId: Long, enabled: Boolean) = withContext(Dispatchers.IO) {
+        db.getRepositoryDao().setRepositoryEnabled(repoId, enabled)
+        refreshRepositories()
+    }
+
+    suspend fun removeRepository(repoId: Long) = withContext(Dispatchers.IO) {
+        db.getRepositoryDao().deleteRepository(repoId)
+        refreshRepositories()
+    }
+
     /** The best version to install for the given package, if any. */
     suspend fun suggestedVersion(packageName: String, preferredSigner: String?): AppVersion? =
         withContext(Dispatchers.IO) {

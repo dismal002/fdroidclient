@@ -93,7 +93,13 @@ object Fdroid {
             if (initialized) return
             val app = context.applicationContext
             db = FDroidDatabaseHolder.getDb(app, "fdroid_db")
-            httpManager = HttpManager("F-Droid TV", null, null, null)
+            // Android TV does not let users install certificates, so the ISRG root
+            // ships with the app and is trusted next to the system anchors.
+            val isrgRoot = app.resources.openRawResource(R.raw.isrgrootx1).use { it.readBytes() }
+            httpManager = HttpManager(
+                userAgent = "F-Droid TV",
+                extraTrustAnchors = listOf(isrgRoot),
+            )
             downloaderFactory = TvDownloaderFactory(httpManager)
             runBlocking(Dispatchers.IO) { ensureRepository(app) }
             repoManager = RepoManager(app, db, downloaderFactory, httpManager, repoUriBuilder)
@@ -226,6 +232,36 @@ object Fdroid {
                 syncing = false
             }
         }
+    }
+
+    /** Adds a repository from a URL and its signing certificate fingerprint. */
+    suspend fun addRepository(
+        name: String,
+        address: String,
+        certificate: String,
+    ): Long = withContext(Dispatchers.IO) {
+        val repoId = db.getRepositoryDao().insert(
+            InitialRepository(
+                name = name,
+                address = address,
+                description = "",
+                certificate = certificate.replace(" ", "").replace(":", "").lowercase(),
+                version = 0,
+                enabled = true,
+            ),
+        )
+        refreshRepositories()
+        repoId
+    }
+
+    suspend fun setRepositoryEnabled(repoId: Long, enabled: Boolean) = withContext(Dispatchers.IO) {
+        db.getRepositoryDao().setRepositoryEnabled(repoId, enabled)
+        refreshRepositories()
+    }
+
+    suspend fun removeRepository(repoId: Long) = withContext(Dispatchers.IO) {
+        db.getRepositoryDao().deleteRepository(repoId)
+        refreshRepositories()
     }
 
     /** The best version to install for the given package, if any. */

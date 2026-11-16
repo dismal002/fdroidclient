@@ -14,6 +14,8 @@ import android.text.format.Formatter
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -64,6 +66,14 @@ class DetailsActivity : AppCompatActivity() {
     private lateinit var screenshotsBlock: View
     private lateinit var screenshots: LinearLayout
     private lateinit var links: TextView
+    private lateinit var linkRows: LinearLayout
+    private lateinit var antiFeaturesBlock: View
+    private lateinit var antiFeatures: LinearLayout
+    private lateinit var permissionsBlock: View
+    private lateinit var permissionsList: LinearLayout
+
+    private val isTablet: Boolean
+        get() = resources.configuration.smallestScreenWidthDp >= 600
     private lateinit var loading: View
 
     private var app: App? = null
@@ -140,6 +150,11 @@ class DetailsActivity : AppCompatActivity() {
         screenshotsBlock = findViewById(R.id.screenshots_block)
         screenshots = findViewById(R.id.screenshots)
         links = findViewById(R.id.details_links)
+        linkRows = findViewById(R.id.details_link_rows)
+        antiFeaturesBlock = findViewById(R.id.antifeatures_block)
+        antiFeatures = findViewById(R.id.antifeatures)
+        permissionsBlock = findViewById(R.id.permissions_block)
+        permissionsList = findViewById(R.id.permissions)
         loading = findViewById(R.id.loading)
 
         findViewById<View>(R.id.back).setOnClickListener { finish() }
@@ -228,6 +243,8 @@ class DetailsActivity : AppCompatActivity() {
         }
 
         renderStats(app)
+        renderAntiFeatures()
+        renderPermissions()
         renderLinks(app)
         renderScreenshots(app)
         renderActions(app)
@@ -274,9 +291,127 @@ class DetailsActivity : AppCompatActivity() {
         if (updated > 0) {
             parts.add(getString(R.string.details_updated, DateFormat.getMediumDateFormat(this).format(Date(updated))))
         }
-        app.metadata.webSite?.let { parts.add(it) }
-        app.metadata.sourceCode?.let { parts.add(it) }
         links.text = parts.joinToString("\n")
+        links.visibility = if (parts.isEmpty()) View.GONE else View.VISIBLE
+
+        linkRows.removeAllViews()
+        app.metadata.webSite?.takeIf { it.isNotBlank() }?.let { url ->
+            addLinkRow(R.drawable.ic_web, getString(R.string.action_website), url)
+        }
+        app.metadata.sourceCode?.takeIf { it.isNotBlank() }?.let { url ->
+            addLinkRow(R.drawable.ic_code, getString(R.string.action_source_code), url)
+        }
+        app.metadata.donate?.filter { it.isNotBlank() }?.forEach { url ->
+            addLinkRow(R.drawable.ic_gift, getString(R.string.action_donate), url)
+        }
+    }
+
+    private fun addLinkRow(iconRes: Int, label: String, url: String) {
+        val row = layoutInflater.inflate(R.layout.phone_link_row, linkRows, false)
+        row.findViewById<ImageView>(R.id.link_row_icon).setImageResource(iconRes)
+        row.findViewById<TextView>(R.id.link_row_text).text = url
+        row.contentDescription = label
+        row.setOnClickListener { openLink(url) }
+        linkRows.addView(row)
+    }
+
+    private fun openLink(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: Exception) {
+            Toast.makeText(this, url, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * The index flags apps for anti-features (ads, tracking, non-free
+     * dependencies, ...); each flagged item gets a row with the reason the
+     * repository gives, matching what the store's app page shows.
+     */
+    private fun renderAntiFeatures() {
+        val version = version
+        val keys = version?.antiFeatureKeys.orEmpty()
+        antiFeatures.removeAllViews()
+        antiFeaturesBlock.visibility = if (keys.isEmpty()) View.GONE else View.VISIBLE
+        keys.forEach { key ->
+            val reason = version?.getAntiFeatureReason(key, locales)?.takeIf { it.isNotBlank() }
+            addInfoRow(
+                container = antiFeatures,
+                iconRes = R.drawable.ic_antifeature,
+                title = antiFeatureLabel(key),
+                description = reason ?: antiFeatureDescription(key),
+            )
+        }
+    }
+
+    /**
+     * Lists the app's permissions grouped the way the store does it: one row per
+     * bucket, with that bucket's icon, title and description.
+     */
+    private fun renderPermissions() {
+        val permissions = (version?.usesPermission.orEmpty() + version?.usesPermissionSdk23.orEmpty())
+            .distinctBy { it.name }
+        val groups = Permissions.groupsFor(permissions)
+        permissionsList.removeAllViews()
+        permissionsBlock.visibility = if (groups.isEmpty()) View.GONE else View.VISIBLE
+        groups.forEach { group ->
+            val description = if (group.bucket.id == Permissions.OTHER_ID) {
+                group.permissions.joinToString("  ·  ") { Permissions.humanized(it.name) }
+            } else {
+                getString(group.bucket.descriptionRes)
+            }
+            addInfoRow(
+                container = permissionsList,
+                iconRes = group.bucket.iconRes,
+                title = getString(group.bucket.titleRes),
+                description = description,
+            )
+        }
+    }
+
+    private fun addInfoRow(container: LinearLayout, iconRes: Int, title: String, description: String) {
+        val row = layoutInflater.inflate(R.layout.phone_info_row, container, false)
+        row.findViewById<ImageView>(R.id.info_row_icon).setImageResource(iconRes)
+        row.findViewById<TextView>(R.id.info_row_title).text = title
+        val descriptionView = row.findViewById<TextView>(R.id.info_row_description)
+        if (description.isEmpty()) {
+            descriptionView.visibility = View.GONE
+        } else {
+            descriptionView.text = description
+        }
+        container.addView(row)
+    }
+
+    private fun antiFeatureDescription(key: String): String = getString(
+        when (key) {
+            "Ads" -> R.string.antifeature_ads_desc
+            "Tracking" -> R.string.antifeature_tracking_desc
+            "NonFreeNet" -> R.string.antifeature_nonfree_net_desc
+            "NonFreeAdd" -> R.string.antifeature_nonfree_add_desc
+            "NonFreeDep" -> R.string.antifeature_nonfree_dep_desc
+            "NonFreeAssets" -> R.string.antifeature_nonfree_assets_desc
+            "UpstreamNonFree" -> R.string.antifeature_upstream_nonfree_desc
+            "NoSourceSince" -> R.string.antifeature_no_source_desc
+            "KnownVuln" -> R.string.antifeature_known_vuln_desc
+            "DisabledAlgorithm" -> R.string.antifeature_disabled_algorithm_desc
+            "WeakSignature" -> R.string.antifeature_weak_signature_desc
+            else -> R.string.antifeature_generic_desc
+        },
+    )
+
+    private fun antiFeatureLabel(key: String): String = when (key) {
+        "Ads" -> "Contains ads"
+        "Tracking" -> "Tracks you"
+        "NonFreeNet" -> "Non-free network"
+        "NonFreeAdd" -> "Non-free addons"
+        "NonFreeDep" -> "Non-free dependencies"
+        "NonFreeAssets" -> "Non-free assets"
+        "UpstreamNonFree" -> "Upstream non-free"
+        "NoSourceSince" -> "No source since"
+        "KnownVuln" -> "Known vulnerabilities"
+        "DisabledAlgorithm" -> "Disabled algorithm"
+        "WeakSignature" -> "Weak signature"
+        else -> key
     }
 
     private fun renderScreenshots(app: App) {
@@ -295,12 +430,24 @@ class DetailsActivity : AppCompatActivity() {
                 return@launch
             }
             screenshotsBlock.visibility = View.VISIBLE
+            if (isTablet) {
+                findViewById<HorizontalScrollView>(R.id.screenshots_scroll).isFillViewport = true
+                screenshots.layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                )
+                screenshots.gravity = Gravity.CENTER_HORIZONTAL
+            }
             val shots = files.toList()
             shots.forEachIndexed { index, file ->
                 val image = ImageView(this@DetailsActivity)
                 image.scaleType = ImageView.ScaleType.CENTER_CROP
                 image.setBackgroundResource(R.color.card_image_background)
-                val params = LinearLayout.LayoutParams(dp(220), dp(124))
+                val params = if (isTablet) {
+                    LinearLayout.LayoutParams(dp(300), dp(169))
+                } else {
+                    LinearLayout.LayoutParams(dp(220), dp(124))
+                }
                 params.marginEnd = dp(10)
                 image.layoutParams = params
                 Fdroid.imageModel(repoId, file)?.let { model ->

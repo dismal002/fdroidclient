@@ -3,12 +3,20 @@ package org.fdroid.phone.settings
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
 import android.text.format.DateFormat
 import android.view.View
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.os.LocaleListCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import org.fdroid.database.Repository
 import org.fdroid.phone.BuildConfig
 import org.fdroid.phone.Fdroid
 import org.fdroid.phone.R
@@ -61,8 +69,24 @@ class SettingsActivity : AppCompatActivity() {
             buildItems()
         }
         addDivider()
-        addRow(getString(R.string.settings_repo), repo?.address.orEmpty(), chevron = true) {
-            repo?.address?.let { openUrl(it) }
+
+        addHeader(getString(R.string.settings_repositories))
+        Fdroid.repositories.values.sortedBy { it.repoId }.forEach { repository ->
+            addRow(
+                repositoryLabel(repository),
+                repositorySummary(repository),
+                chevron = false,
+            ) {
+                showRepositoryDialog(repository)
+            }
+            addDivider()
+        }
+        addRow(
+            getString(R.string.settings_add_repository),
+            getString(R.string.settings_add_repository_summary),
+            chevron = true,
+        ) {
+            showAddRepositoryDialog()
         }
 
         addHeader(getString(R.string.settings_about))
@@ -126,6 +150,94 @@ class SettingsActivity : AppCompatActivity() {
         view.findViewById<TextView>(R.id.footer_title).text = title
         view.findViewById<TextView>(R.id.footer_summary).text = summary
         items.addView(view)
+    }
+
+    private fun repositoryLabel(repository: Repository): String =
+        repository.getName(LocaleListCompat.getDefault())
+            ?: repository.address.substringAfter("//").substringBefore("/")
+
+    private fun repositorySummary(repository: Repository): String =
+        if (repository.enabled) {
+            repository.address
+        } else {
+            repository.address + " (" + getString(R.string.repo_disabled) + ")"
+        }
+
+    private fun showRepositoryDialog(repository: Repository) {
+        AlertDialog.Builder(this)
+            .setTitle(repositoryLabel(repository))
+            .setMessage(repositorySummary(repository))
+            .setPositiveButton(if (repository.enabled) R.string.repo_disable else R.string.repo_enable) { _, _ ->
+                lifecycleScope.launch {
+                    Fdroid.setRepositoryEnabled(repository.repoId, !repository.enabled)
+                    buildItems()
+                }
+            }
+            .setNeutralButton(R.string.repo_remove) { _, _ -> confirmRemove(repository) }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmRemove(repository: Repository) {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.repo_remove)
+            .setMessage(getString(R.string.repo_remove_confirm, repositoryLabel(repository)))
+            .setPositiveButton(R.string.repo_remove) { _, _ ->
+                lifecycleScope.launch {
+                    Fdroid.removeRepository(repository.repoId)
+                    buildItems()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showAddRepositoryDialog() {
+        val padding = (24 * resources.displayMetrics.density).toInt()
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, padding / 2, padding, 0)
+        }
+        val url = EditText(this).apply {
+            hint = getString(R.string.repo_url_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine()
+        }
+        val fingerprint = EditText(this).apply {
+            hint = getString(R.string.repo_fingerprint_hint)
+            inputType = InputType.TYPE_CLASS_TEXT
+            textSize = 13f
+        }
+        container.addView(url)
+        container.addView(fingerprint)
+
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_add_repository)
+            .setView(container)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                addRepository(url.text.toString(), fingerprint.text.toString())
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun addRepository(rawUrl: String, rawFingerprint: String) {
+        val address = rawUrl.trim()
+        val certificate = rawFingerprint.replace(" ", "").replace(":", "").trim()
+        if (address.isEmpty() || certificate.length != 64) {
+            Toast.makeText(this, R.string.repo_invalid, Toast.LENGTH_LONG).show()
+            return
+        }
+        val name = android.net.Uri.parse(address).host ?: address
+        lifecycleScope.launch {
+            try {
+                Fdroid.addRepository(name, address, certificate)
+                buildItems()
+                Fdroid.sync(this@SettingsActivity)
+            } catch (e: Exception) {
+                Toast.makeText(this@SettingsActivity, R.string.repo_invalid, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun openUrl(url: String) {

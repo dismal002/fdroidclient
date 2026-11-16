@@ -32,6 +32,7 @@
     <string name="action_less">Less</string>
     <string name="action_website">Website</string>
     <string name="action_source_code">Source code</string>
+    <string name="action_donate">Donate</string>
     <string name="action_trailer">Trailer</string>
 
     <string name="details_loading">Loading…</string>
@@ -41,6 +42,8 @@
     <string name="details_size">%1$s</string>
 
     <string name="index_updating">Updating F-Droid index…</string>
+    <string name="sync_dialog_title">Please wait…</string>
+    <string name="sync_dialog_message">Preparing to download…</string>
     <string name="index_updated">Index updated: %1$d apps</string>
     <string name="index_empty">No app data yet.</string>
     <string name="index_error">Could not update the index: %1$s</string>
@@ -168,4 +171,15 @@
     <string name="settings_licenses">Open source licenses</string>
     <string name="settings_licenses_summary">License details for open source software</string>
     <string name="settings_version_footer">Version: %1$s</string>
+    <string name="settings_repositories">Repositories</string>
+    <string name="settings_add_repository">Add repository</string>
+    <string name="settings_add_repository_summary">URL and signing certificate fingerprint</string>
+    <string name="repo_url_hint">https://example.org/fdroid/repo</string>
+    <string name="repo_fingerprint_hint">SHA-256 signing fingerprint</string>
+    <string name="repo_disabled">disabled</string>
+    <string name="repo_enable">Enable</string>
+    <string name="repo_disable">Disable</string>
+    <string name="repo_remove">Remove</string>
+    <string name="repo_remove_confirm">Remove %1$s? Its apps and metadata are deleted from this device.</string>
+    <string name="repo_invalid">Enter the repository URL and its 64-character signing fingerprint.</string>
 </resources>
