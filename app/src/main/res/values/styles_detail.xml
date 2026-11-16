@@ -16,8 +16,17 @@
         <item name="android:letterSpacing">0.05</item>
     </style>
 
+    <!-- Play's filled green action button (INSTALL / UPDATE) -->
     <style name="DetailsPrimaryButtonStyle" parent="Widget.App.Button">
         <item name="materialThemeOverlay">@style/ThemeOverlay.App.DetailsButton</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.App.PlayButton</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:letterSpacing">0.05</item>
+        <item name="android:minHeight">36dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
     </style>
 
     <style name="ThemeOverlay.App.DetailsButton" parent="" />
@@ -30,8 +39,16 @@
         <item name="android:paddingRight">12dp</item>
     </style>
 
+    <!-- Play's outlined UNINSTALL / OPEN button next to the filled one -->
     <style name="DetailsSecondaryButtonStyle" parent="DetailsButtonStyle">
         <item name="materialThemeOverlay">@style/ThemeOverlay.App.DetailsButton</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.App.PlayButton</item>
+        <item name="strokeColor">@color/play_button_outline</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="android:textColor">@color/play_green</item>
+        <item name="android:minHeight">36dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
     </style>
 
     <style name="DetailsSecondaryButtonStyleSmall" parent="DetailsSecondaryButtonStyle">
@@ -50,7 +67,21 @@
     </style>
 
     <style name="DetailsAppTitleStyle" parent="TextAppearance.MaterialComponents.Headline6">
-        <item name="android:textSize">18sp</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textColor">@color/play_fg_primary</item>
+    </style>
+
+    <!-- Developer line under the app name -->
+    <style name="DetailsAppAuthorStyle" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/play_fg_secondary</item>
+    </style>
+
+    <!-- Section headings such as "About this app" and "Screenshots" -->
+    <style name="DetailsSectionHeaderStyle" parent="TextAppearance.MaterialComponents.Subtitle1">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/play_fg_primary</item>
+        <item name="android:textStyle">bold</item>
     </style>
 
 

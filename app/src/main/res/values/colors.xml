@@ -33,6 +33,17 @@
     <color name="fdroid_error">@color/fdroid_red</color>
     <color name="fdroid_caption">#ff757575</color>
 
+    <!-- Play Store (2015) palette: green app-store accent, dark grey type -->
+    <color name="play_green">#ff689f38</color>
+    <color name="play_green_dark">#ff558b2f</color>
+    <color name="play_green_light">#ffaed581</color>
+    <color name="play_fg_primary">#ff212121</color>
+    <color name="play_fg_secondary">#ff757575</color>
+    <color name="play_search_background">#fff1f1f1</color>
+    <color name="play_card">#ffffffff</color>
+    <color name="play_whats_new">#ffdcedc8</color>
+    <color name="play_button_outline">#ffbdbdbd</color>
+
     <color name="shadow">#cc222222</color>
     <color name="warning">#827717</color>
 

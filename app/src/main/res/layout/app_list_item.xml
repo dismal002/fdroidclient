@@ -28,7 +28,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         tools:text="F-Droid Application manager with a long name that will wrap and then ellipsize"
-        android:textSize="18sp"
+        android:textSize="16sp"
+        android:textStyle="bold"
         android:textColor="?attr/appListItem"
         android:lines="2"
         android:ellipsize="end"
@@ -66,9 +67,9 @@
             tools:src="@drawable/ic_download"
             android:scaleType="fitXY"
             android:contentDescription="@string/menu_install"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:elevation="2dp"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:tint="@color/play_green"
             android:padding="4dp" />
 
         <Button

@@ -35,8 +35,21 @@
         <item name="shapeAppearance">@style/ShapeAppearance.App.Button</item>
     </style>
 
+    <!-- Play Store install button: flat green, small radius, uppercase label -->
     <style name="Widget.App.Button" parent="Widget.MaterialComponents.Button">
-        <item name="shapeAppearance">@style/ShapeAppearance.App.Button</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.App.PlayButton</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:letterSpacing">0.05</item>
+        <item name="android:minWidth">88dp</item>
+        <item name="android:minHeight">36dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="ShapeAppearance.App.PlayButton" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">2dp</item>
     </style>
 
     <style name="AlertDialogBaseThemeDark" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog" />

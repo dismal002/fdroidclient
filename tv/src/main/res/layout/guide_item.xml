@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/guide_item_root"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/guide_item_height"
+    android:background="@drawable/guide_item_bg"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+
+    <ImageView
+        android:id="@+id/guide_icon"
+        android:layout_width="@dimen/guide_item_icon_size"
+        android:layout_height="@dimen/guide_item_icon_size"
+        android:layout_marginEnd="@dimen/guide_icon_padding"
+        android:tint="@color/guide_text"
+        android:importantForAccessibility="no" />
+
+    <TextView
+        android:id="@+id/guide_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif"
+        android:textColor="@color/guide_text"
+        android:textSize="22sp" />
+</LinearLayout>

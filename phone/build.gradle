@@ -1,0 +1,81 @@
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+}
+
+android {
+    namespace "org.fdroid.phone"
+    compileSdk 34
+    buildToolsVersion "34.0.0"
+
+    defaultConfig {
+        applicationId "org.fdroid.phone"
+        minSdkVersion 21
+        // keep in line with the main F-Droid app to avoid package visibility
+        // and notification permission friction on Android TV
+        targetSdkVersion 29
+        versionCode 1
+        versionName "1.0"
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    packagingOptions {
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude '.readme'
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation project(":libs:download")
+    implementation project(":libs:index")
+    implementation project(":libs:database")
+    // Same version the database library uses; needed for one batched query over the index.
+    implementation "androidx.room:room-runtime:2.6.1"
+
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    // 1.0.0 is the API level the 2015 Play Store for Android TV was built against,
+    // so we get the exact row/header/card behaviour of that era.
+    implementation 'androidx.leanback:leanback:1.0.0'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.viewpager2:viewpager2:1.0.0'
+    implementation 'androidx.drawerlayout:drawerlayout:1.1.1'
+    implementation 'androidx.palette:palette-ktx:1.0.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
+    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    // HttpManager takes an OkHttp Dns for custom resolvers
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}

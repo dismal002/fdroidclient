@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:endColor="#070a0b"
+                android:startColor="#131b1e" />
+        </shape>
+    </item>
+    <!-- faint store wallpaper shapes of the era -->
+    <item android:gravity="top|start">
+        <shape android:shape="oval">
+            <gradient
+                android:centerX="0.2"
+                android:centerY="0.1"
+                android:endColor="#00000000"
+                android:gradientRadius="460dp"
+                android:startColor="#0f181c"
+                android:type="radial" />
+        </shape>
+    </item>
+</layer-list>

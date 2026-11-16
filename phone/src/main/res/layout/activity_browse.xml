@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_tv_store">
+
+    <FrameLayout
+        android:id="@+id/content"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="@dimen/content_margin_start"
+        android:clipToPadding="false"
+        android:paddingStart="@dimen/browse_padding_start"
+        android:paddingTop="@dimen/browse_content_top"
+        android:paddingEnd="@dimen/browse_padding_end"
+        android:paddingBottom="@dimen/browse_content_bottom">
+
+        <FrameLayout
+            android:id="@+id/rows_fragment"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <LinearLayout
+            android:id="@+id/status_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:indeterminate="true" />
+
+            <TextView
+                android:id="@+id/status_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:maxWidth="520dp"
+                android:gravity="center"
+                android:textColor="@color/text_secondary"
+                android:textSize="16sp"
+                tools:text="Updating F-Droid index…" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Guide rail: static, always visible like the 2015 store -->
+    <LinearLayout
+        android:id="@+id/guide"
+        android:layout_width="@dimen/guide_width"
+        android:layout_height="match_parent"
+        android:background="@color/guide_rail"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/guide_padding_start"
+        android:paddingTop="@dimen/guide_padding_top"
+        android:paddingEnd="12dp">
+
+        <FrameLayout
+            android:id="@+id/search_orb"
+            android:layout_width="@dimen/guide_search_orb_size"
+            android:layout_height="@dimen/guide_search_orb_size"
+            android:background="@drawable/search_orb_bg"
+            android:clickable="true"
+            android:contentDescription="@string/guide_search"
+            android:focusable="true"
+            android:focusableInTouchMode="true">
+
+            <ImageView
+                android:layout_width="@dimen/guide_search_icon_size"
+                android:layout_height="@dimen/guide_search_icon_size"
+                android:layout_gravity="center"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_search" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/guide_items"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/guide_items_margin_top"
+            android:orientation="vertical" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="@dimen/guide_edge_width"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:layout_marginStart="@dimen/guide_width"
+        android:background="@drawable/guide_crop_gradient" />
+
+    <TextView
+        android:id="@+id/brand"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="30dp"
+        android:layout_marginEnd="48dp"
+        android:fontFamily="sans-serif-light"
+        android:letterSpacing="0.02"
+        android:text="@string/brand"
+        android:textColor="@color/text_primary"
+        android:textSize="36sp" />
+</FrameLayout>

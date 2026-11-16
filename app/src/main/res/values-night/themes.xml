@@ -27,8 +27,8 @@
         <item name="android:navigationBarColor">@android:color/black</item>
 
         <!-- backward-compatibility theme options go here -->
-        <item name="colorPrimary">@color/fdroid_blue_light</item>
-        <item name="colorPrimaryVariant">@color/fdroid_blue</item>
+        <item name="colorPrimary">@color/play_green</item>
+        <item name="colorPrimaryVariant">@color/play_green_dark</item>
         <item name="colorPrimaryDark">?colorPrimaryVariant</item>
         <item name="colorOnPrimary">#000000</item>
         <item name="colorSecondary">@color/fdroid_green_light</item>

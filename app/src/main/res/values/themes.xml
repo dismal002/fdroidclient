@@ -34,15 +34,15 @@
         <!--colorPrimary colors map to components and elements, such as app bars and buttons. -->
         <!--colorSecondary colors are most often used as accents on components, such as FABs and -->
         <!--selection controls.-->
-        <item name="colorPrimary">@color/fdroid_blue</item>
-        <item name="colorPrimaryVariant">@color/fdroid_blue_dark</item>
+        <item name="colorPrimary">@color/play_green</item>
+        <item name="colorPrimaryVariant">@color/play_green_dark</item>
         <item name="colorPrimaryDark">?colorPrimaryVariant</item>
-        <item name="colorSecondary">@color/fdroid_green</item>
+        <item name="colorSecondary">@color/play_green_dark</item>
         <!--colorBackground appears behind scrollable content and is used for the default window-->
         <!--background. colorSurface is mapped to the surface of components such as cards, sheets-->
         <!--and menus. colorError is used to indicate an error state for components such as-->
         <!--text fields.-->
-        <item name="appDetailsBackground">#fcfcfc</item>
+        <item name="appDetailsBackground">#f5f5f5</item>
         <item name="appDetailsCardBackground">#ffffff</item>
         <item name="categoryPreviewAppCardBackground">
             @drawable/category_preview_app_card_background_light
@@ -58,7 +58,7 @@
         <item name="colorOnPrimary">#ffffff</item>
         <item name="colorOnSecondary">#ffffff</item>
 
-        <item name="android:textColorLink">@color/fdroid_green</item>
+        <item name="android:textColorLink">@color/play_green</item>
         <item name="mainTabSwapSplashTint">#f5f5f5</item>
         <item name="categoryName">#4a4a4a</item>
         <item name="installedApps">#424242</item>
@@ -67,7 +67,7 @@
         <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
         <item name="appDetailsAntiFeatureIconColor">#000000</item>
 
-        <item name="iconBackgroundColor">#801976D2</item>
+        <item name="iconBackgroundColor">#80689F38</item>
 
         <item name="bottomNavigationStyle">
             @style/Widget.MaterialComponents.BottomNavigationView.PrimarySurface

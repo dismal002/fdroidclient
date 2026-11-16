@@ -1,5 +1,9 @@
+// The phone app derives its version name from `git describe` and falls back to a
+// fixed name in an extracted source tree, so it builds either way.
 include ':app'
 include ':libs:sharedTest'
 include ':libs:download'
 include ':libs:index'
 include ':libs:database'
+include ':tv'
+include ':phone'

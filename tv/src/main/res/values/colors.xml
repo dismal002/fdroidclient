@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backgrounds -->
+    <color name="tv_background">#0d1214</color>
+    <color name="guide_rail">#141b1e</color>
+    <color name="details_panel">#1b1b1b</color>
+    <color name="card_image_background">#141a1d</color>
+
+    <!-- Guide -->
+    <color name="guide_text_default">#cccccc</color>
+    <color name="guide_text_focused">#ffffffff</color>
+    <color name="search_orb">#607d8b</color>
+    <color name="search_orb_focused">#9fbcc9</color>
+
+    <!-- Cards -->
+    <color name="card_info">#263238</color>
+    <color name="card_title">#ffeeeeee</color>
+    <color name="card_subtitle">#b3eeeeee</color>
+    <color name="card_status">#ffeeeeee</color>
+
+    <!-- Details -->
+    <color name="action_selected">#4b4b4b</color>
+    <color name="text_primary">#eeeeee</color>
+    <color name="text_secondary">#b2eeeeee</color>
+    <color name="accent_green">#558b2f</color>
+    <color name="accent_blue">#3f9fe0</color>
+    <color name="badge_background">#33ffffff</color>
+</resources>

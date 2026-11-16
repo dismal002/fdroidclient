@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/card_root"
+    android:layout_width="@dimen/card_width"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <FrameLayout
+        android:id="@+id/card_image_frame"
+        android:layout_width="@dimen/card_width"
+        android:layout_height="@dimen/card_image_height"
+        android:background="@color/card_image_background">
+
+        <ImageView
+            android:id="@+id/card_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:importantForAccessibility="no" />
+
+        <View
+            android:id="@+id/card_focus_ring"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/card_focus_ring"
+            android:visibility="invisible" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/card_info"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/card_info_height"
+        android:background="@color/card_info"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/card_icon_margin"
+        android:paddingEnd="@dimen/card_icon_margin">
+
+        <ImageView
+            android:id="@+id/card_icon"
+            android:layout_width="@dimen/card_icon_size"
+            android:layout_height="@dimen/card_icon_size"
+            android:layout_marginEnd="8dp"
+            android:importantForAccessibility="no" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/card_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/card_title"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/card_subtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/card_subtitle"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/card_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.08"
+            android:textAllCaps="true"
+            android:textColor="@color/card_status"
+            android:textSize="10sp" />
+    </LinearLayout>
+</LinearLayout>

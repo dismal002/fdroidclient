@@ -4,7 +4,9 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="@dimen/details_activity_padding"
+    app:cardBackgroundColor="@color/play_card"
+    app:cardCornerRadius="0dp"
+    app:cardElevation="0dp"
     android:animateLayoutChanges="true">
 
     <LinearLayout
@@ -44,7 +46,7 @@
                 android:id="@+id/author"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+                android:textAppearance="@style/DetailsAppAuthorStyle"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="@+id/title"
                 app:layout_constraintTop_toBottomOf="@+id/title"

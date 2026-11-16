@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Guide rail: 284dp wide, guide entries start 167dp from the top -->
+    <dimen name="guide_width">284dp</dimen>
+    <dimen name="guide_search_orb_size">56dp</dimen>
+    <dimen name="search_padding_start">64dp</dimen>
+    <dimen name="search_padding_top">44dp</dimen>
+    <dimen name="search_padding_end">64dp</dimen>
+    <dimen name="search_bar_width">640dp</dimen>
+    <dimen name="search_bar_height">60dp</dimen>
+    <dimen name="guide_search_icon_size">26dp</dimen>
+    <dimen name="guide_padding_start">32dp</dimen>
+    <dimen name="guide_padding_top">34dp</dimen>
+    <dimen name="guide_items_margin_top">40dp</dimen>
+    <dimen name="guide_item_height">58dp</dimen>
+    <dimen name="guide_item_icon_size">24dp</dimen>
+    <dimen name="guide_icon_padding">14dp</dimen>
+
+    <!-- Content: rails overlap the content by -30dp (browse_underhang) -->
+    <dimen name="browse_underhang">30dp</dimen>
+    <dimen name="content_margin_start">254dp</dimen>
+    <dimen name="guide_edge_width">24dp</dimen>
+    <dimen name="browse_padding_start">0dp</dimen>
+    <dimen name="browse_padding_end">0dp</dimen>
+    <dimen name="browse_content_top">150dp</dimen>
+    <dimen name="browse_content_bottom">40dp</dimen>
+
+    <!-- Cards: 268x134dp image, 30dp icon, small info area -->
+    <dimen name="card_width">268dp</dimen>
+    <dimen name="card_image_height">134dp</dimen>
+    <dimen name="card_info_height">46dp</dimen>
+    <dimen name="card_icon_size">30dp</dimen>
+    <dimen name="card_icon_margin">10dp</dimen>
+
+    <!-- Details -->
+    <dimen name="details_hero_height">300dp</dimen>
+    <dimen name="details_poster_size">134dp</dimen>
+    <dimen name="details_margin_start">56dp</dimen>
+    <dimen name="details_margin_end">56dp</dimen>
+    <dimen name="details_title_size">30sp</dimen>
+    <dimen name="details_body_size">14sp</dimen>
+    <dimen name="details_action_min_height">46dp</dimen>
+    <dimen name="details_play_button_size">76dp</dimen>
+</resources>

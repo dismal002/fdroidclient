@@ -12,14 +12,16 @@ if (project.hasProperty('strict.release')) {
     apply from: '../config/pmd/pmd.gradle'
 }
 
-/* gets the version name from the latest Git tag */
+/* gets the version name from the latest Git tag, or falls back for source trees */
 def getVersionName = { ->
     def stdout = new ByteArrayOutputStream()
     exec {
         commandLine 'git', 'describe', '--tags', '--always'
         standardOutput = stdout
+        ignoreExitValue true
     }
-    return stdout.toString().trim()
+    def name = stdout.toString().trim()
+    return name.isEmpty() ? '1.21-untagged' : name
 }
 
 // yes, this actually needs both quotes https://stackoverflow.com/a/41391841
@@ -100,6 +102,10 @@ android {
         compileOptions.encoding = "UTF-8"
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
     }
 
     aaptOptions {

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- soft darkening at the very top -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:centerY="0.25"
+                android:endColor="#00000000"
+                android:startColor="#73000000" />
+        </shape>
+    </item>
+    <!-- fade into the details panel at the bottom -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:centerY="0.62"
+                android:endColor="#ff1b1b1b"
+                android:startColor="#001b1b1b" />
+        </shape>
+    </item>
+</layer-list>
