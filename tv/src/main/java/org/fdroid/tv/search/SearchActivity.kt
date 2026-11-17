@@ -12,8 +12,10 @@ import androidx.leanback.widget.ArrayObjectAdapter
 import androidx.leanback.widget.HeaderItem
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
+import org.fdroid.database.AppListItem
 import org.fdroid.database.AppListSortOrder
 import org.fdroid.tv.Fdroid
 import org.fdroid.tv.R
@@ -33,6 +35,9 @@ class SearchActivity : FragmentActivity() {
     private lateinit var repository: AppRepository
     private lateinit var rowsAdapter: ArrayObjectAdapter
     private lateinit var rowsFragment: RowsSupportFragment
+    private var items: List<AppListItem> = emptyList()
+    private var itemsLive: LiveData<List<AppListItem>>? = null
+
     private val handler = Handler(Looper.getMainLooper())
     private val generation = AtomicInteger()
     private var pending: Runnable? = null
@@ -66,6 +71,23 @@ class SearchActivity : FragmentActivity() {
                 scheduleSearch(s?.toString().orEmpty())
             }
         })
+        observeItems()
+    }
+
+    /**
+     * Keeps the whole index in memory for filtering; the query itself matches
+     * the app text of every locale, not just the one the device is set to.
+     */
+    private fun observeItems() {
+        val live = Fdroid.db.getAppDao()
+            .getAppListItems(packageManager, null, AppListSortOrder.NAME)
+        live.observe(this) { all ->
+            items = all
+            val query = (findViewById<EditText>(R.id.search_query).text?.toString()).orEmpty()
+            if (query.isNotBlank()) scheduleSearch(query)
+        }
+        itemsLive?.removeObservers(this)
+        itemsLive = live
     }
 
     private fun scheduleSearch(query: String) {
@@ -82,16 +104,20 @@ class SearchActivity : FragmentActivity() {
 
     private fun search(query: String) {
         val current = generation.incrementAndGet()
-        val liveData = Fdroid.db.getAppDao()
-            .getAppListItems(packageManager, query.trim(), AppListSortOrder.NAME)
-        liveData.observe(this) { items ->
-            if (current != generation.get()) {
-                liveData.removeObservers(this)
-                return@observe
+        val trimmed = query.trim()
+        if (!SearchText.isSearchable(trimmed)) {
+            showResults(emptyList())
+            return
+        }
+        val words = SearchText.words(trimmed)
+        lifecycleScope.launch {
+            val index = repository.searchIndex()
+            if (current != generation.get()) return@launch
+            val matches = items.filter { item ->
+                index[item.packageName]?.let { SearchText.matches(it, words) } == true
             }
-            lifecycleScope.launch {
-                showResults(repository.cardsFromListItems(items))
-            }
+            if (current != generation.get()) return@launch
+            showResults(repository.cardsFromListItems(matches))
         }
     }
 

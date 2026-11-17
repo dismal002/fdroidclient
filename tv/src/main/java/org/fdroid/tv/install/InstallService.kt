@@ -45,6 +45,8 @@ class InstallService : Service() {
         const val EXTRA_STATE = "org.fdroid.tv.STATE"
         const val EXTRA_PROGRESS = "org.fdroid.tv.PROGRESS"
         const val EXTRA_MESSAGE = "org.fdroid.tv.MESSAGE"
+        const val EXTRA_BYTES = "org.fdroid.tv.BYTES"
+        const val EXTRA_TOTAL = "org.fdroid.tv.TOTAL"
 
         const val STATE_DOWNLOADING = "downloading"
         const val STATE_INSTALLING = "installing"
@@ -113,7 +115,13 @@ class InstallService : Service() {
             val downloader = Fdroid.downloaderFactory.create(repo, uri, indexFile, apkFile)
             downloader.setListener { bytesRead, totalBytes ->
                 val progress = if (totalBytes > 0) (bytesRead * 100 / totalBytes).toInt() else -1
-                broadcast(packageName, STATE_DOWNLOADING, progress)
+                broadcast(
+                    packageName,
+                    STATE_DOWNLOADING,
+                    progress,
+                    bytesRead = bytesRead,
+                    totalBytes = totalBytes,
+                )
                 updateNotification(getString(R.string.install_downloading, label), progress)
             }
             downloader.download()
@@ -173,12 +181,16 @@ class InstallService : Service() {
         state: String,
         progress: Int,
         message: String? = null,
+        bytesRead: Long = -1,
+        totalBytes: Long = -1,
     ) {
         val intent = Intent(ACTION_INSTALL_STATE).apply {
             putExtra(EXTRA_PACKAGE, packageName)
             putExtra(EXTRA_STATE, state)
             putExtra(EXTRA_PROGRESS, progress)
             putExtra(EXTRA_MESSAGE, message)
+            putExtra(EXTRA_BYTES, bytesRead)
+            putExtra(EXTRA_TOTAL, totalBytes)
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }

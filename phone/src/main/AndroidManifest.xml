@@ -43,6 +43,16 @@
             android:exported="false" />
 
         <activity
+            android:name=".home.MyAppsActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="false" />
+
+        <activity
+            android:name=".history.HistoryActivity"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="false" />
+
+        <activity
             android:name=".details.ScreenshotActivity"
             android:exported="false"
             android:theme="@style/Theme.FdroidPhone.Fullscreen" />

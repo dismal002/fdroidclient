@@ -92,6 +92,30 @@ public interface AppDao {
     ): LiveData<List<AppOverviewItem>>
 
     /**
+     * Returns apps whose index entry was added at or after [minAdded], newest first.
+     * This is what the store shows as new apps, so it is independent of updates.
+     */
+    public fun getNewApps(
+        minAdded: Long,
+        limit: Int = 100,
+    ): LiveData<List<AppOverviewItem>>
+
+    /**
+     * Returns apps that were updated but not added after [maxAdded], most recently
+     * updated first. Together with [getNewApps] this keeps the two store rows apart.
+     */
+    public fun getRecentlyUpdatedApps(
+        maxAdded: Long,
+        limit: Int = 200,
+    ): LiveData<List<AppOverviewItem>>
+
+    /** Returns the apps for the given [packageNames], for curated lists like most downloaded. */
+    public fun getApps(packageNames: List<String>): LiveData<List<AppOverviewItem>>
+
+    /** Returns the searchable text of every app, in all locales the index has. */
+    public fun getSearchEntries(): List<AppSearchEntry>
+
+    /**
      * Returns a list of all [AppListItem] sorted by the given [sortOrder],
      * or a subset of [AppListItem]s filtered by the given [searchQuery] if it is non-null.
      * In the later case, the [sortOrder] gets ignored.
@@ -377,6 +401,53 @@ internal interface AppDaoInt : AppDao {
             localizedSummary IS NULL ASC, app.lastUpdated DESC
         LIMIT :limit""")
     override fun getAppOverviewItems(category: String, limit: Int): LiveData<List<AppOverviewItem>>
+
+    @Transaction
+    @Query("""SELECT repoId, packageName, app.added, app.lastUpdated, localizedName,
+            localizedSummary, version.antiFeatures, app.isCompatible
+        FROM ${AppMetadata.TABLE} AS app
+        JOIN ${RepositoryPreferences.TABLE} AS pref USING (repoId)
+        LEFT JOIN ${HighestVersion.TABLE} AS version USING (repoId, packageName)
+        LEFT JOIN AppPrefs USING (packageName)
+        WHERE pref.enabled = 1 AND COALESCE(preferredRepoId, repoId) = repoId AND
+            app.added >= :minAdded
+        GROUP BY packageName HAVING MAX(pref.weight)
+        ORDER BY app.added DESC
+        LIMIT :limit""")
+    override fun getNewApps(minAdded: Long, limit: Int): LiveData<List<AppOverviewItem>>
+
+    @Transaction
+    @Query("""SELECT repoId, packageName, app.added, app.lastUpdated, localizedName,
+            localizedSummary, version.antiFeatures, app.isCompatible
+        FROM ${AppMetadata.TABLE} AS app
+        JOIN ${RepositoryPreferences.TABLE} AS pref USING (repoId)
+        LEFT JOIN ${HighestVersion.TABLE} AS version USING (repoId, packageName)
+        LEFT JOIN AppPrefs USING (packageName)
+        WHERE pref.enabled = 1 AND COALESCE(preferredRepoId, repoId) = repoId AND
+            app.added < :maxAdded
+        GROUP BY packageName HAVING MAX(pref.weight)
+        ORDER BY app.lastUpdated DESC
+        LIMIT :limit""")
+    override fun getRecentlyUpdatedApps(
+        maxAdded: Long,
+        limit: Int,
+    ): LiveData<List<AppOverviewItem>>
+
+    @Transaction
+    @Query("""SELECT repoId, packageName, app.added, app.lastUpdated, localizedName,
+            localizedSummary, version.antiFeatures, app.isCompatible
+        FROM ${AppMetadata.TABLE} AS app
+        JOIN ${RepositoryPreferences.TABLE} AS pref USING (repoId)
+        LEFT JOIN ${HighestVersion.TABLE} AS version USING (repoId, packageName)
+        LEFT JOIN AppPrefs USING (packageName)
+        WHERE pref.enabled = 1 AND COALESCE(preferredRepoId, repoId) = repoId AND
+            packageName IN (:packageNames)
+        GROUP BY packageName HAVING MAX(pref.weight)""")
+    override fun getApps(packageNames: List<String>): LiveData<List<AppOverviewItem>>
+
+    @Query("""SELECT packageName, name, summary, authorName, categories
+        FROM ${AppMetadata.TABLE}""")
+    override fun getSearchEntries(): List<AppSearchEntry>
 
     /**
      * Used by [DbUpdateChecker] to get specific apps with available updates.

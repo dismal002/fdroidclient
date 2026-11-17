@@ -136,6 +136,7 @@
     <string name="phone_back">Back</string>
     <string name="phone_row_new">New &amp; Updated</string>
     <string name="phone_row_recommended">Recommended for you</string>
+    <string name="phone_row_most_downloaded">Most downloaded</string>
     <string name="phone_update_available">Update available</string>
     <string name="phone_installed">Installed</string>
 
@@ -182,4 +183,29 @@
     <string name="repo_remove">Remove</string>
     <string name="repo_remove_confirm">Remove %1$s? Its apps and metadata are deleted from this device.</string>
     <string name="repo_invalid">Enter the repository URL and its 64-character signing fingerprint.</string>
+
+    <string name="myapps_tab_updates">UPDATES</string>
+    <string name="myapps_tab_installed">INSTALLED</string>
+    <string name="myapps_tab_all">ALL</string>
+    <string name="myapps_title">My apps</string>
+    <string name="myapps_updates_header">Updates</string>
+    <string name="myapps_up_to_date">Up to date</string>
+    <string name="myapps_installed_label">INSTALLED</string>
+    <string name="myapps_updates_available">Updates available (%1$d)</string>
+    <string name="myapps_update_all">UPDATE ALL</string>
+    <string name="myapps_recently_updated">Recently updated (%1$d)</string>
+    <string name="myapps_installed_count">Installed (%1$d)</string>
+    <string name="myapps_meta_size_updated">%1$s · Updated %2$s</string>
+    <string name="myapps_meta_updated">Updated %1$s</string>
+    <string name="history_title">Install history</string>
+    <string name="history_empty">No installs or updates yet.</string>
+    <string name="history_installed">Installed</string>
+    <string name="history_updated">Updated to</string>
+    <string name="history_uninstalled">Uninstalled</string>
+    <string name="history_drawer">Install history</string>
+    <string name="download_pending">Download pending…</string>
+    <string name="download_percent">%1$d%%</string>
+    <string name="download_cancel">Cancel download</string>
+    <string name="download_bytes">%1$s / %2$s</string>
+    <string name="download_bytes_only">%1$s</string>
 </resources>

@@ -11,6 +11,7 @@
     <string name="row_featured">Featured Apps &amp; Games</string>
     <string name="row_recently_updated">Recently updated</string>
     <string name="row_new">New apps</string>
+    <string name="row_most_downloaded">Most downloaded</string>
     <string name="row_games">Games</string>
     <string name="row_multimedia">Multimedia</string>
     <string name="row_internet">Internet</string>
@@ -136,4 +137,8 @@
     <string name="repo_remove">Remove</string>
     <string name="repo_remove_confirm">Remove %1$s? Its apps and metadata are deleted from this device.</string>
     <string name="repo_invalid">Enter the repository URL and its 64-character signing fingerprint.</string>
+
+    <string name="download_percent">%1$d%%</string>
+    <string name="download_bytes_only">%1$s</string>
+    <string name="download_bytes">%1$s / %2$s</string>
 </resources>

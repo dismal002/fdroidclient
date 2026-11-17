@@ -29,6 +29,20 @@ class InstallResultReceiver : BroadcastReceiver() {
                 }
             }
             PackageInstaller.STATUS_SUCCESS -> {
+                org.fdroid.phone.history.InstallHistory.record(
+                    context,
+                    org.fdroid.phone.history.InstallHistory.Event(
+                        packageName = packageName,
+                        name = intent.getStringExtra("historyLabel") ?: packageName,
+                        versionName = intent.getStringExtra("historyVersion"),
+                        action = if (intent.getBooleanExtra("wasInstalled", false)) {
+                            org.fdroid.phone.history.InstallHistory.ACTION_UPDATED
+                        } else {
+                            org.fdroid.phone.history.InstallHistory.ACTION_INSTALLED
+                        },
+                        timestamp = System.currentTimeMillis(),
+                    ),
+                )
                 notifyUi(context, packageName, InstallService.STATE_DONE, null)
             }
             else -> {

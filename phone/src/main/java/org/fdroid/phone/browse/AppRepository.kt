@@ -5,6 +5,7 @@ import android.text.format.Formatter
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.room.RoomDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,6 +14,7 @@ import org.fdroid.database.AppOverviewItem
 import org.fdroid.index.v2.FileV2
 import org.fdroid.phone.Fdroid
 import org.fdroid.phone.R
+import org.fdroid.phone.search.SearchText
 
 /**
  * The data a single store card needs.
@@ -41,6 +43,14 @@ data class TvRow(val title: String, val cards: List<AppCard>)
 
 class AppRepository(private val context: Context) {
 
+    private companion object {
+        /** The store treats apps added in the last two weeks as new. */
+        const val NEW_DAYS_MILLIS = 14L * 24 * 60 * 60 * 1000
+
+        /** Screenshot types in the order the phone page prefers them. */
+        val SCREENSHOT_TYPES = listOf("phone", "sevenInch", "tenInch", "tv", "wear")
+    }
+
     private data class AppDetail(
         val featureGraphic: FileV2? = null,
         val banner: FileV2? = null,
@@ -53,11 +63,76 @@ class AppRepository(private val context: Context) {
     @Volatile
     private var details: Map<String, AppDetail>? = null
 
+    @Volatile
+    private var searchIndex: Map<String, String>? = null
+
     fun overview(): LiveData<List<AppOverviewItem>> =
         Fdroid.db.getAppDao().getAppOverviewItems(800)
 
     fun invalidateDetails() {
         details = null
+        searchIndex = null
+    }
+
+    private fun newCutoff(): Long = System.currentTimeMillis() - NEW_DAYS_MILLIS
+
+    /** Apps added in the last two weeks, newest first. */
+    fun newApps(): LiveData<List<AppOverviewItem>> =
+        Fdroid.db.getAppDao().getNewApps(newCutoff(), 100)
+
+    /** Apps that were updated recently but are not new. */
+    fun recentlyUpdatedApps(): LiveData<List<AppOverviewItem>> =
+        Fdroid.db.getAppDao().getRecentlyUpdatedApps(newCutoff(), 200)
+
+    /** The store's editorial "most downloaded" list, curated in the bundled asset. */
+    fun curatedApps(): LiveData<List<AppOverviewItem>> {
+        val packages = mostDownloadedPackages()
+        if (packages.isEmpty()) {
+            return MutableLiveData(emptyList())
+        }
+        return Fdroid.db.getAppDao().getApps(packages)
+    }
+
+    fun mostDownloadedPackages(): List<String> = try {
+        val text = context.assets.open("most_downloaded_apps.json").bufferedReader().use { it.readText() }
+        Regex("\"([^\"]+)\"").findAll(text).map { it.groupValues[1] }.toList()
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    /** Keeps the curated order of [packages], dropping apps this index does not have. */
+    fun inCuratedOrder(cards: List<AppCard>, packages: List<String>): List<AppCard> {
+        val byPackage = cards.associateBy { it.packageName }
+        return packages.mapNotNull { byPackage[it] }
+    }
+
+    /**
+     * Normalized searchable text for every app in the index, built once and
+     * reused for each keystroke. It covers the name and summary in every locale
+     * the index provides, plus the author and package name, which is what makes
+     * search work across languages.
+     */
+    suspend fun searchIndex(): Map<String, String> = withContext(Dispatchers.IO) {
+        searchIndex ?: buildSearchIndex().also { if (it.isNotEmpty()) searchIndex = it }
+    }
+
+    private fun buildSearchIndex(): Map<String, String> {
+        val entries = try {
+            Fdroid.db.getAppDao().getSearchEntries()
+        } catch (e: Exception) {
+            return emptyMap()
+        }
+        val result = HashMap<String, String>(entries.size * 2)
+        entries.forEach { entry ->
+            val text = buildString {
+                append(SearchText.normalize(entry.packageName))
+                entry.name?.values?.forEach { append(' ').append(SearchText.normalize(it)) }
+                entry.summary?.values?.forEach { append(' ').append(SearchText.normalize(it)) }
+                entry.authorName?.let { append(' ').append(SearchText.normalize(it)) }
+            }
+            result[entry.packageName] = text
+        }
+        return result
     }
 
     suspend fun installedPackages(): Set<String> = withContext(Dispatchers.IO) {
@@ -140,31 +215,58 @@ class AppRepository(private val context: Context) {
 
     /** Cards for the apps that are installed and present in the index. */
     /**
-     * Screenshots (and the promo graphic the index uses instead for some apps) of
-     * one app, in index order. Returns an empty list when the index has none.
+     * The screenshots of one app, in the best matching locale of the most
+     * suitable screenshot type the index provides.
+     *
+     * The index stores screenshots per type and locale (phone, sevenInch,
+     * tenInch, tv, wear) in a separate list table, not as single files, so
+     * reading them from there is what the carousel needs.
      */
-    suspend fun artwork(repoId: Long, packageName: String): List<FileV2> =
+    suspend fun screenshots(repoId: Long, packageName: String): List<FileV2> =
         withContext(Dispatchers.IO) {
             val room = Fdroid.db as? RoomDatabase ?: return@withContext emptyList()
-            val result = ArrayList<FileV2>()
+            val byType = LinkedHashMap<String, LinkedHashMap<String, MutableList<FileV2>>>()
             room.openHelper.readableDatabase.query(
-                "SELECT name, sha256, size FROM LocalizedFile WHERE repoId = ? AND packageName = ? " +
-                    "AND type IN ('screenshot', 'promoGraphic') ORDER BY type DESC, locale ASC",
+                "SELECT type, locale, name, sha256, size FROM LocalizedFileList " +
+                    "WHERE repoId = ? AND packageName = ? ORDER BY rowid",
                 arrayOf(repoId, packageName),
             ).use { cursor ->
                 while (cursor.moveToNext()) {
-                    result.add(
-                        FileV2(
-                            name = cursor.getString(0),
-                            sha256 = cursor.getString(1),
-                            size = if (cursor.isNull(2)) null else cursor.getLong(2),
-                            ipfsCidV1 = null,
-                        ),
+                    val type = cursor.getString(0) ?: continue
+                    val locale = cursor.getString(1) ?: continue
+                    val name = cursor.getString(2) ?: continue
+                    val file = FileV2(
+                        name = name,
+                        sha256 = cursor.getString(3),
+                        size = if (cursor.isNull(4)) null else cursor.getLong(4),
+                        ipfsCidV1 = null,
                     )
+                    byType.getOrPut(type) { LinkedHashMap() }
+                        .getOrPut(locale) { ArrayList() }
+                        .add(file)
                 }
             }
-            result
+            for (type in SCREENSHOT_TYPES) {
+                val locales = byType[type] ?: continue
+                val best = bestLocale(locales.keys) ?: continue
+                val files = locales.getValue(best)
+                if (files.isNotEmpty()) return@withContext files
+            }
+            emptyList()
         }
+
+    /** Picks the device's locale (or its language) when the index has it. */
+    private fun bestLocale(available: Set<String>): String? {
+        val device = LocaleListCompat.getDefault()
+        for (index in 0 until device.size()) {
+            val locale = device.get(index) ?: continue
+            val tag = locale.toLanguageTag()
+            available.firstOrNull { it.equals(tag, ignoreCase = true) }?.let { return it }
+            available.firstOrNull { it.substringBefore('-').equals(locale.language, ignoreCase = true) }
+                ?.let { return it }
+        }
+        return available.firstOrNull()
+    }
 
     suspend fun installedCards(
         items: List<AppListItem>,
@@ -211,6 +313,35 @@ class AppRepository(private val context: Context) {
                 )
             }
         }
+
+    /**
+     * Cards for the vertical list rows. Those rows only show the icon, name and
+     * summary, so the scan for artwork and categories (the expensive part of
+     * [buildCards]) is skipped and a long category list opens immediately.
+     */
+    suspend fun listCards(
+        items: List<AppOverviewItem>,
+        updates: Set<String>,
+        installed: Set<String>,
+    ): List<AppCard> = withContext(Dispatchers.IO) {
+        items.map { item ->
+            AppCard(
+                repoId = item.repoId,
+                packageName = item.packageName,
+                name = item.name ?: item.packageName,
+                summary = item.summary,
+                icon = item.getIcon(locales),
+                featureGraphic = null,
+                banner = null,
+                installed = installed.contains(item.packageName),
+                updateAvailable = updates.contains(item.packageName),
+                isCompatible = item.isCompatible,
+                categories = emptyList(),
+                added = item.added,
+                lastUpdated = item.lastUpdated,
+            )
+        }
+    }
 
     fun isInstalled(packageName: String): Boolean = installedVersionCode(packageName) != null
 

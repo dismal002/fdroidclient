@@ -233,6 +233,19 @@ public data class App internal constructor(
 }
 
 /**
+ * The text of an app that search matches against, in every locale the index
+ * provides. Keeping this projection small means search can cover all languages
+ * without loading full app descriptions into memory.
+ */
+public data class AppSearchEntry(
+    public val packageName: String,
+    public val name: LocalizedTextV2? = null,
+    public val summary: LocalizedTextV2? = null,
+    public val authorName: String? = null,
+    public val categories: List<String>? = null,
+)
+
+/**
  * A lightweight variant of [App] with minimal data, usually used to provide an overview of apps
  * without going into all details that get presented on a dedicated screen.
  * The reduced data footprint helps with fast loading many items at once.

@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.text.Html
 import android.text.format.Formatter
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -69,6 +70,9 @@ class DetailsActivity : FragmentActivity() {
     private var version: AppVersion? = null
     private var expanded = false
     private var installing = false
+    private var downloadBytes: TextView? = null
+    private var downloadPercent: TextView? = null
+    private var downloadBar: android.widget.ProgressBar? = null
     private var actionSignature = ""
     private val locales: LocaleListCompat = LocaleListCompat.getDefault()
 
@@ -77,17 +81,34 @@ class DetailsActivity : FragmentActivity() {
             if (intent.getStringExtra(InstallService.EXTRA_PACKAGE) != packageName) return
             when (intent.getStringExtra(InstallService.EXTRA_STATE)) {
                 InstallService.STATE_DOWNLOADING -> {
-                    val progress = intent.getIntExtra(InstallService.EXTRA_PROGRESS, -1)
-                    val text = if (progress >= 0) {
-                        "${getString(R.string.action_install)} $progress%"
-                    } else {
-                        getString(R.string.action_install)
+                    if (!installing) {
+                        installing = true
+                        actionSignature = ""
+                        render()
                     }
-                    actions.findViewWithTag<TextView>("primary")?.text = text
+                    val progress = intent.getIntExtra(InstallService.EXTRA_PROGRESS, -1)
+                    val bytesRead = intent.getLongExtra(InstallService.EXTRA_BYTES, -1)
+                    val totalBytes = intent.getLongExtra(InstallService.EXTRA_TOTAL, -1)
+                    downloadBar?.isIndeterminate = progress < 0
+                    if (progress >= 0) downloadBar?.progress = progress
+                    downloadPercent?.text = if (progress >= 0) {
+                        getString(R.string.download_percent, progress)
+                    } else {
+                        ""
+                    }
+                    downloadBytes?.text = if (bytesRead >= 0 && totalBytes > 0) {
+                        getString(
+                            R.string.download_bytes,
+                            android.text.format.Formatter.formatFileSize(this@DetailsActivity, bytesRead),
+                            android.text.format.Formatter.formatFileSize(this@DetailsActivity, totalBytes),
+                        )
+                    } else {
+                        ""
+                    }
                 }
                 InstallService.STATE_INSTALLING -> {
-                    actions.findViewWithTag<TextView>("primary")?.text =
-                        getString(R.string.action_installing)
+                    downloadBar?.isIndeterminate = true
+                    downloadPercent?.text = getString(R.string.action_installing)
                 }
                 InstallService.STATE_DONE -> {
                     installing = false
@@ -349,7 +370,8 @@ class DetailsActivity : FragmentActivity() {
 
         actions.removeAllViews()
         when {
-            installing -> addAction(getString(R.string.action_installing), primary = true) {}
+            // Just like leanback's details action, the download replaces the button.
+            installing -> addProgress()
             installedCode == null -> addAction(getString(R.string.action_install), primary = true) { install() }
             availableCode != null && availableCode > installedCode ->
                 addAction(getString(R.string.action_update), primary = true) { install() }
@@ -377,6 +399,46 @@ class DetailsActivity : FragmentActivity() {
                 if (actions.findFocus() == null) firstAction.requestFocus()
             }
         }
+    }
+
+    private fun addProgress() {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        downloadBytes = TextView(this).apply {
+            setTextColor(ContextCompat.getColor(this@DetailsActivity, R.color.text_secondary))
+            textSize = 12f
+            isAllCaps = true
+        }
+        downloadPercent = TextView(this).apply {
+            setTextColor(ContextCompat.getColor(this@DetailsActivity, R.color.text_secondary))
+            textSize = 12f
+            isAllCaps = true
+        }
+        top.addView(downloadBytes, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        top.addView(downloadPercent)
+        box.addView(top, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        downloadBar = android.widget.ProgressBar(
+            this,
+            null,
+            android.R.attr.progressBarStyleHorizontal,
+        ).apply {
+            max = 100
+            progressDrawable = ContextCompat.getDrawable(this@DetailsActivity, R.drawable.progress_tv)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(4f),
+            ).apply { topMargin = dp(6f) }
+        }
+        box.addView(downloadBar)
+        actions.addView(
+            box,
+            LinearLayout.LayoutParams(dp(320f), LinearLayout.LayoutParams.WRAP_CONTENT),
+        )
     }
 
     private fun addAction(label: String, primary: Boolean = false, onClick: () -> Unit) {

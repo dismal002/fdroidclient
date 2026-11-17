@@ -21,9 +21,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.launch
+import org.fdroid.database.AppListItem
 import org.fdroid.database.AppListSortOrder
 import org.fdroid.phone.Fdroid
 import org.fdroid.phone.R
@@ -46,6 +48,9 @@ class SearchActivity : AppCompatActivity() {
     private lateinit var field: EditText
     private lateinit var clear: View
 
+    private var items: List<AppListItem> = emptyList()
+    private var itemsLive: LiveData<List<AppListItem>>? = null
+
     private val handler = Handler(Looper.getMainLooper())
     private val generation = AtomicInteger()
     private var pending: Runnable? = null
@@ -54,8 +59,9 @@ class SearchActivity : AppCompatActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             val state = intent.getStringExtra(InstallService.EXTRA_STATE) ?: return
             if (state != InstallService.STATE_DONE && state != InstallService.STATE_ERROR) return
-            // The row still says INSTALLING; run the query again so it turns into OPEN.
+            // The row still says INSTALLING; re-read the installed state so it turns into OPEN.
             val query = field.text?.toString().orEmpty()
+            observeItems()
             if (query.isNotBlank()) search(query)
         }
     }
@@ -85,6 +91,24 @@ class SearchActivity : AppCompatActivity() {
             }
         })
         field.requestFocus()
+        observeItems()
+    }
+
+    /**
+     * Keeps every app of the index in memory, so a keystroke only has to filter
+     * this list instead of querying the database. Re-registering the observer
+     * re-reads the installed state from the package manager after an install.
+     */
+    private fun observeItems() {
+        val live = Fdroid.db.getAppDao()
+            .getAppListItems(packageManager, null, AppListSortOrder.NAME)
+        live.observe(this) { all ->
+            items = all
+            val query = field.text?.toString().orEmpty()
+            if (query.isNotBlank()) search(query)
+        }
+        itemsLive?.removeObservers(this)
+        itemsLive = live
     }
 
     override fun onStart() {
@@ -113,18 +137,27 @@ class SearchActivity : AppCompatActivity() {
         handler.postDelayed(runnable, 250)
     }
 
+    /**
+     * Matches the query against every locale the index has for each app, so an
+     * app is found by its name in any language, its author or package name.
+     */
     private fun search(query: String) {
         val current = generation.incrementAndGet()
-        val liveData = Fdroid.db.getAppDao()
-            .getAppListItems(packageManager, query.trim(), AppListSortOrder.NAME)
-        liveData.observe(this) { items ->
-            if (current != generation.get()) {
-                liveData.removeObservers(this)
-                return@observe
+        val trimmed = query.trim()
+        if (!SearchText.isSearchable(trimmed)) {
+            results.removeAllViews()
+            empty.visibility = View.GONE
+            return
+        }
+        val words = SearchText.words(trimmed)
+        lifecycleScope.launch {
+            val index = repository.searchIndex()
+            if (current != generation.get()) return@launch
+            val matches = items.filter { item ->
+                index[item.packageName]?.let { SearchText.matches(it, words) } == true
             }
-            lifecycleScope.launch {
-                showResults(repository.cardsFromListItems(items))
-            }
+            if (current != generation.get()) return@launch
+            showResults(repository.cardsFromListItems(matches).take(60))
         }
     }
 

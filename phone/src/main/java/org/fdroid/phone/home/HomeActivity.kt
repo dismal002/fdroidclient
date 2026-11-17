@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
+import org.fdroid.database.Category
 import org.fdroid.phone.Fdroid
 import org.fdroid.phone.R
 import org.fdroid.phone.browse.AppCard
@@ -30,6 +31,7 @@ import org.fdroid.phone.details.DetailsActivity
 import org.fdroid.phone.search.SearchActivity
 import org.fdroid.phone.settings.SettingsActivity
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The phone store front: a green bar with the search field, a tab strip, the
@@ -41,8 +43,6 @@ class HomeActivity : AppCompatActivity() {
 
     private companion object {
         const val STATE_TAB = "org.fdroid.phone.state.TAB"
-        const val DRAWER_APPS = 0
-        const val DRAWER_MY_APPS = 1
     }
 
     private lateinit var repository: AppRepository
@@ -63,6 +63,10 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var chips: LinearLayout
 
     private var cards: List<AppCard> = emptyList()
+    private var newCards: List<AppCard> = emptyList()
+    private var recentCards: List<AppCard> = emptyList()
+    private var curatedCards: List<AppCard> = emptyList()
+    private var categories: List<Category> = emptyList()
     private var lastItemCount = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,11 +77,9 @@ class HomeActivity : AppCompatActivity() {
         chips = findViewById(R.id.chips)
         drawer = findViewById(R.id.drawer)
         drawerItems = findViewById(R.id.drawer_items)
-        buildDrawer()
         findViewById<View>(R.id.menu_button).setOnClickListener {
             // The home screen is the apps page, so that is the row showing as selected.
-            selectedDrawer = DRAWER_APPS
-            buildDrawer()
+            PhoneDrawer.build(this, drawer, drawerItems, PhoneDrawer.APPS)
             drawer.openDrawer(Gravity.START)
         }
 
@@ -103,6 +105,28 @@ class HomeActivity : AppCompatActivity() {
         selectedTab = savedInstanceState?.getInt(STATE_TAB) ?: R.id.tab_apps
         tabsRow.post {
             selectTab(findViewById(selectedTab), animate = false)
+        }
+
+        Fdroid.db.getRepositoryDao().getLiveCategories().observe(this) { list ->
+            // Several repositories may declare the same category id.
+            categories = list.distinctBy { it.id }
+            renderChips()
+            if (selectedTab == R.id.tab_categories) renderCategories()
+        }
+        repository.newApps().observe(this) { items ->
+            lifecycleScope.launch { newCards = buildAsync(items); renderRows() }
+        }
+        repository.recentlyUpdatedApps().observe(this) { items ->
+            lifecycleScope.launch { recentCards = buildAsync(items); renderRows() }
+        }
+        repository.curatedApps().observe(this) { items ->
+            lifecycleScope.launch {
+                curatedCards = repository.inCuratedOrder(
+                    buildAsync(items),
+                    repository.mostDownloadedPackages(),
+                )
+                renderRows()
+            }
         }
 
         repository.overview().observe(this) { items ->
@@ -131,6 +155,9 @@ class HomeActivity : AppCompatActivity() {
             }
         }
     }
+
+    private suspend fun buildAsync(items: List<org.fdroid.database.AppOverviewItem>): List<AppCard> =
+        repository.buildCards(items, Fdroid.updatableApps(), repository.installedPackages())
 
     private fun renderIndexStatus() {
         if (cards.isNotEmpty()) {
@@ -191,13 +218,14 @@ class HomeActivity : AppCompatActivity() {
         if (!isTablet) return
         val field = findViewById<View>(R.id.search_field)
         val params = field.layoutParams as LinearLayout.LayoutParams
-        params.width = dp(480)
+        params.width = 0
+        params.weight = 1f
         params.height = dp(56)
-        params.gravity = Gravity.CENTER_HORIZONTAL
-        params.topMargin = dp(16)
-        params.bottomMargin = dp(8)
-        params.marginStart = 0
-        params.marginEnd = 0
+        params.gravity = Gravity.CENTER_VERTICAL
+        params.topMargin = 0
+        params.bottomMargin = 0
+        params.marginStart = dp(6)
+        params.marginEnd = dp(24)
         field.layoutParams = params
 
         tabsRow.gravity = Gravity.CENTER_HORIZONTAL
@@ -222,20 +250,24 @@ class HomeActivity : AppCompatActivity() {
         return ((available - gap * 4) / 5).coerceAtLeast(dp(160))
     }
 
+    /**
+     * The index lists a category for every app category, including the fine
+     * grained game ones. Chips, rows and the grid show the broad categories in
+     * order of how many apps they have, which is what the store surfaces.
+     */
+    private fun visibleCategories(): List<Category> {
+        val counts = cards.flatMap { it.categories }.groupingBy { it }.eachCount()
+        return categories
+            .filterNot { it.id.endsWith("Game") }
+            .sortedByDescending { counts[it.id] ?: 0 }
+    }
+
     private fun renderChips() {
         chips.removeAllViews()
-        val categories = cards.flatMap { it.categories }
-            .filterNot { it.endsWith("Game") }
-            .groupingBy { it }
-            .eachCount()
-            .entries
-            .sortedByDescending { it.value }
-            .map { it.key }
-            .take(8)
         chips.setPadding(sidePadding() - dp(4), 0, sidePadding() - dp(4), 0)
-        categories.forEach { category ->
+        visibleCategories().take(8).forEach { category ->
             val chip = TextView(this)
-            chip.text = category
+            chip.text = category.getName(locales) ?: category.id
             chip.setTextColor(0xffffffff.toInt())
             chip.textSize = 12f
             chip.letterSpacing = 0.04f
@@ -248,37 +280,44 @@ class HomeActivity : AppCompatActivity() {
             )
             params.marginEnd = dp(8)
             chip.layoutParams = params
-            chip.setOnClickListener { openCategory(category) }
+            chip.setOnClickListener { openCategory(category.id, category.getName(locales) ?: category.id) }
             chips.addView(chip)
         }
     }
 
+    /**
+     * The discover screen mirrors the F-Droid client's sections: apps that are
+     * new to the index, apps that were updated recently, the curated most
+     * downloaded list, and a few categories from the repository.
+     */
     private fun renderRows() {
         rows.removeAllViews()
-        val newest = cards.sortedByDescending { it.lastUpdated }
-        val newRow = newest.take(20)
-        val takenPackages = newRow.map { it.packageName }.toSet()
-        val withArt = cards.filter {
-            (it.featureGraphic != null || it.banner != null) && it.packageName !in takenPackages
+        val newRow = if (newCards.isNotEmpty()) {
+            newCards
+        } else {
+            cards.sortedByDescending { it.added }
         }
-        val recommended = (withArt + newest.filter { it.packageName !in takenPackages })
+        val newPackages = newRow.map { it.packageName }.toSet()
+        val recentRow = (if (recentCards.isNotEmpty()) recentCards else cards.sortedByDescending { it.lastUpdated })
+            .filterNot { it.packageName in newPackages }
             .distinctBy { it.packageName }
-            .take(20)
 
-        val sections = listOf(
-            TvRow(getString(R.string.phone_row_new), newRow),
-            TvRow(getString(R.string.phone_row_recommended), recommended),
-        ) + cards.flatMap { it.categories }
-            .filterNot { it.endsWith("Game") }
-            .distinct()
-            .sorted()
-            .take(4)
-            .map { category -> TvRow(category, cards.filter { it.categories.contains(category) }) }
-
-        sections.forEach { section ->
-            if (section.cards.isEmpty()) return@forEach
-            addSection(section)
+        val sections = ArrayList<TvRow>()
+        sections.addIfNotEmpty(getString(R.string.row_new), newRow)
+        sections.addIfNotEmpty(getString(R.string.row_recently_updated), recentRow)
+        sections.addIfNotEmpty(getString(R.string.phone_row_most_downloaded), curatedCards)
+        visibleCategories().take(4).forEach { category ->
+            sections.addIfNotEmpty(
+                category.getName(locales) ?: category.id,
+                cards.filter { card -> card.categories.contains(category.id) },
+            )
         }
+
+        sections.forEach { section -> addSection(section) }
+    }
+
+    private fun MutableList<TvRow>.addIfNotEmpty(title: String, sectionCards: List<AppCard>) {
+        if (sectionCards.isNotEmpty()) add(TvRow(title, sectionCards.take(20)))
     }
 
     private fun addSection(section: TvRow) {
@@ -353,107 +392,20 @@ class HomeActivity : AppCompatActivity() {
         )
     }
 
-    private fun openCategory(category: String) {
-        startActivity(SectionListActivity.categoryIntent(this, category))
+    private fun openCategory(categoryId: String, title: String) {
+        startActivity(SectionListActivity.categoryIntent(this, categoryId, title))
     }
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
-    private data class DrawerRow(
-        val label: Int,
-        val icon: Int,
-        val tint: Int,
-        val highlight: Boolean = false,
-        val dividerBefore: Boolean = false,
-        val action: () -> Unit,
-    )
-
-    private var selectedDrawer = DRAWER_APPS
-
     private val isTablet: Boolean
         get() = resources.configuration.smallestScreenWidthDp >= 600
 
-    private fun buildDrawer() {
-        drawerItems.removeAllViews()
-        val appsSelected = selectedDrawer == DRAWER_APPS
-        val rows = listOf(
-            DrawerRow(
-                R.string.phone_drawer_apps,
-                R.drawable.ic_drawer_apps,
-                if (appsSelected) 0xff558b2f.toInt() else 0xff757575.toInt(),
-                highlight = appsSelected,
-            ) {
-                drawer.closeDrawers()
-            },
-            DrawerRow(
-                R.string.phone_drawer_my_apps,
-                R.drawable.all_apps,
-                if (appsSelected) 0xff757575.toInt() else 0xff00796b.toInt(),
-            ) {
-                selectedDrawer = DRAWER_MY_APPS
-                buildDrawer()
-                openMyApps()
-            },
-            DrawerRow(R.string.phone_drawer_settings, R.drawable.ic_settings, 0xff757575.toInt(), dividerBefore = true) {
-                startActivity(Intent(this, SettingsActivity::class.java))
-            },
-        )
-        rows.forEach { row ->
-            if (row.dividerBefore) {
-                drawerItems.addView(View(this).apply {
-                    setBackgroundColor(0xffe0e0e0.toInt())
-                }, LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(1)
-                ).apply {
-                    topMargin = dp(8)
-                    bottomMargin = dp(8)
-                })
-            }
-            drawerItems.addView(drawerRow(row))
-        }
-    }
-
-    private fun drawerRow(row: DrawerRow): View {
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(20), 0, dp(16), 0)
-            isClickable = true
-            isFocusable = true
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)
-            )
-            if (row.highlight) setBackgroundColor(0xffeeeeee.toInt())
-            setOnClickListener { row.action() }
-        }
-        container.addView(ImageView(this).apply {
-            setImageResource(row.icon)
-            setColorFilter(row.tint)
-            layoutParams = LinearLayout.LayoutParams(dp(22), dp(22))
-        })
-        container.addView(TextView(this).apply {
-            text = getString(row.label)
-            textSize = 15f
-            setTextColor(0xff212121.toInt())
-            layoutParams = LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
-            ).apply { marginStart = dp(20) }
-        })
-        return container
-    }
+    private val locales = androidx.core.os.LocaleListCompat.getDefault()
 
     private fun openMyApps() {
         drawer.closeDrawers()
-        lifecycleScope.launch {
-            val installed = repository.installedPackages()
-            startActivity(
-                SectionListActivity.intent(
-                    this@HomeActivity,
-                    getString(R.string.phone_drawer_my_apps),
-                    installed.toTypedArray(),
-                )
-            )
-        }
+        startActivity(MyAppsActivity.intent(this))
     }
 
     override fun onDestroy() {
@@ -498,14 +450,14 @@ class HomeActivity : AppCompatActivity() {
         val side = sidePadding()
         categoriesList.setPadding(side, dp(12), side, dp(12))
         val columns = if (isTablet) 4 else 2
-        val counts = cards.flatMap { it.categories }
-            .filterNot { it.endsWith("Game") }
-            .groupingBy { it }
-            .eachCount()
-            .entries
-            .sortedByDescending { it.value }
+        val items = visibleCategories()
+        if (items.isEmpty()) return
+
+        // The tiles are laid out straight away; the app counts are one query per
+        // category, so they arrive afterwards instead of holding the tab blank.
+        val countViews = HashMap<String, TextView>()
         var row: LinearLayout? = null
-        counts.forEachIndexed { index, entry ->
+        items.forEachIndexed { index, category ->
             if (index % columns == 0) {
                 row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
@@ -516,33 +468,51 @@ class HomeActivity : AppCompatActivity() {
                 }
                 categoriesList.addView(row)
             }
+            val name = category.getName(locales) ?: category.id
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setBackgroundColor(0xffffffff.toInt())
-                setPadding(dp(14), dp(14), dp(14), dp(14))
+                setPadding(dp(14), dp(14), dp(14), dp(12))
                 layoutParams = LinearLayout.LayoutParams(
-                    0, dp(86), 1f
+                    0, dp(96), 1f
                 ).apply { marginEnd = if (index % columns == columns - 1) 0 else dp(10) }
-                setOnClickListener { openCategory(entry.key) }
+                setOnClickListener { openCategory(category.id, name) }
             }
             tile.addView(TextView(this).apply {
-                text = entry.key
+                text = name
                 setTextColor(0xff212121.toInt())
                 textSize = 15f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
+            tile.addView(TextView(this).apply {
+                text = category.getDescription(locales).orEmpty()
+                setTextColor(0xff757575.toInt())
+                textSize = 12f
                 maxLines = 2
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     0,
                     1f,
-                )
+                ).apply { topMargin = dp(4) }
             })
-            tile.addView(TextView(this).apply {
-                text = getString(R.string.phone_apps_count, entry.value)
-                setTextColor(0xff757575.toInt())
-                textSize = 13f
-            })
+            val countView = TextView(this).apply {
+                setTextColor(0xff00796b.toInt())
+                textSize = 12f
+            }
+            countViews[category.id] = countView
+            tile.addView(countView)
             row?.addView(tile)
+        }
+
+        lifecycleScope.launch {
+            items.forEach { category ->
+                val count = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    Fdroid.db.getAppDao().getNumberOfAppsInCategory(category.id)
+                }
+                countViews[category.id]?.text = getString(R.string.phone_apps_count, count)
+            }
         }
     }
 

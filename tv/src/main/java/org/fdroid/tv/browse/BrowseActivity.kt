@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.os.LocaleListCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.leanback.app.RowsSupportFragment
 import androidx.leanback.widget.ArrayObjectAdapter
@@ -47,6 +48,9 @@ class BrowseActivity : FragmentActivity() {
     private val guideViews = HashMap<Screen, View>()
     private var screen = Screen.HOME
     private var cards: List<AppCard> = emptyList()
+    private var curatedCards: List<AppCard> = emptyList()
+    private var categoryNames: Map<String, String> = emptyMap()
+    private val locales: LocaleListCompat = LocaleListCompat.getDefault()
     private var installedCards: List<AppCard> = emptyList()
     private var updates: Set<String> = emptySet()
     private var lastItems: List<AppOverviewItem> = emptyList()
@@ -92,6 +96,19 @@ class BrowseActivity : FragmentActivity() {
         repository.overview().observe(this) { items ->
             lastItems = items
             refreshCards(items)
+        }
+        repository.curatedApps().observe(this) { items ->
+            lifecycleScope.launch {
+                curatedCards = repository.inCuratedOrder(
+                    repository.buildCards(items, updates, repository.installedPackages()),
+                    repository.mostDownloadedPackages(),
+                )
+                if (screen == Screen.HOME) render()
+            }
+        }
+        Fdroid.db.getRepositoryDao().getLiveCategories().observe(this) { list ->
+            categoryNames = list.associate { it.id to (it.getName(locales) ?: it.id) }
+            if (screen == Screen.HOME) render()
         }
         Fdroid.syncState.observe(this) { state ->
             if (state is Fdroid.SyncState.Done) {
@@ -206,7 +223,7 @@ class BrowseActivity : FragmentActivity() {
 
     private fun render() {
         val rows = when (screen) {
-            Screen.HOME -> repository.homeRows(cards)
+            Screen.HOME -> repository.homeRows(cards, curatedCards, categoryNames)
             Screen.MY_APPS -> repository.myAppsRows(installedCards)
             Screen.SETTINGS -> emptyList()
         }

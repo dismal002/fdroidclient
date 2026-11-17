@@ -5,6 +5,7 @@ import android.text.format.Formatter
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.room.RoomDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,6 +14,7 @@ import org.fdroid.database.AppOverviewItem
 import org.fdroid.index.v2.FileV2
 import org.fdroid.tv.Fdroid
 import org.fdroid.tv.R
+import org.fdroid.tv.search.SearchText
 
 /**
  * The data a single store card needs.
@@ -41,6 +43,11 @@ data class TvRow(val title: String, val cards: List<AppCard>)
 
 class AppRepository(private val context: Context) {
 
+    private companion object {
+        /** The store treats apps added in the last two weeks as new. */
+        const val NEW_DAYS_MILLIS = 14L * 24 * 60 * 60 * 1000
+    }
+
     private data class AppDetail(
         val featureGraphic: FileV2? = null,
         val banner: FileV2? = null,
@@ -53,11 +60,70 @@ class AppRepository(private val context: Context) {
     @Volatile
     private var details: Map<String, AppDetail>? = null
 
+    @Volatile
+    private var searchIndex: Map<String, String>? = null
+
     fun overview(): LiveData<List<AppOverviewItem>> =
         Fdroid.db.getAppDao().getAppOverviewItems(800)
 
     fun invalidateDetails() {
         details = null
+        searchIndex = null
+    }
+
+    /** Apps added in the last two weeks, newest first. */
+    fun newApps(): LiveData<List<AppOverviewItem>> =
+        Fdroid.db.getAppDao().getNewApps(System.currentTimeMillis() - NEW_DAYS_MILLIS, 100)
+
+    /** Apps that were updated recently but are not new. */
+    fun recentlyUpdatedApps(): LiveData<List<AppOverviewItem>> =
+        Fdroid.db.getAppDao().getRecentlyUpdatedApps(System.currentTimeMillis() - NEW_DAYS_MILLIS, 200)
+
+    /** The curated "most downloaded" list, refreshed from the bundled asset. */
+    fun curatedApps(): LiveData<List<AppOverviewItem>> {
+        val packages = mostDownloadedPackages()
+        if (packages.isEmpty()) return MutableLiveData(emptyList())
+        return Fdroid.db.getAppDao().getApps(packages)
+    }
+
+    fun mostDownloadedPackages(): List<String> = try {
+        val text = context.assets.open("most_downloaded_apps.json").bufferedReader().use { it.readText() }
+        Regex("\"([^\"]+)\"").findAll(text).map { it.groupValues[1] }.toList()
+    } catch (e: Exception) {
+        emptyList()
+    }
+
+    /** Keeps the curated order of [packages], dropping apps this index does not have. */
+    fun inCuratedOrder(cards: List<AppCard>, packages: List<String>): List<AppCard> {
+        val byPackage = cards.associateBy { it.packageName }
+        return packages.mapNotNull { byPackage[it] }
+    }
+
+    /**
+     * Normalized search text of every app in the index, covering the name and
+     * summary in all locales, so search works across languages.
+     */
+    suspend fun searchIndex(): Map<String, String> = withContext(Dispatchers.IO) {
+        searchIndex ?: buildSearchIndex().also { if (it.isNotEmpty()) searchIndex = it }
+    }
+
+    private fun buildSearchIndex(): Map<String, String> {
+        val entries = try {
+            Fdroid.db.getAppDao().getSearchEntries()
+        } catch (e: Exception) {
+            return emptyMap()
+        }
+        val result = HashMap<String, String>(entries.size * 2)
+        entries.forEach { entry ->
+            val text = buildString {
+                append(SearchText.normalize(entry.packageName))
+                entry.name?.values?.forEach { append(' ').append(SearchText.normalize(it)) }
+                entry.summary?.values?.forEach { append(' ').append(SearchText.normalize(it)) }
+                entry.authorName?.let { append(' ').append(SearchText.normalize(it)) }
+            }
+            result[entry.packageName] = text
+        }
+        return result
     }
 
     suspend fun installedPackages(): Set<String> = withContext(Dispatchers.IO) {
@@ -208,7 +274,11 @@ class AppRepository(private val context: Context) {
      * meaningful way: apps with TV art first, then the newest and recently updated,
      * then category rows.
      */
-    fun homeRows(cards: List<AppCard>): List<TvRow> {
+    fun homeRows(
+        cards: List<AppCard>,
+        mostDownloaded: List<AppCard> = emptyList(),
+        categoryNames: Map<String, String> = emptyMap(),
+    ): List<TvRow> {
         val withArt = cards.filter { it.featureGraphic != null || it.banner != null }
         val featured = (withArt.sortedByDescending { it.lastUpdated } +
             cards.filter { it.featureGraphic == null && it.banner == null })
@@ -216,6 +286,7 @@ class AppRepository(private val context: Context) {
             .take(20)
         val rows = ArrayList<TvRow>()
         rows.addIfNotEmpty(context.getString(R.string.row_featured), featured)
+        rows.addIfNotEmpty(context.getString(R.string.row_most_downloaded), mostDownloaded)
         rows.addIfNotEmpty(
             context.getString(R.string.row_recently_updated),
             cards.sortedByDescending { it.lastUpdated }.take(20),
@@ -229,11 +300,11 @@ class AppRepository(private val context: Context) {
             cards.filter { it.isGame }.take(20),
         )
         rows.addIfNotEmpty(
-            context.getString(R.string.row_multimedia),
+            categoryNames["Multimedia"] ?: context.getString(R.string.row_multimedia),
             cards.filter { it.categories.contains("Multimedia") }.take(20),
         )
         rows.addIfNotEmpty(
-            context.getString(R.string.row_internet),
+            categoryNames["Internet"] ?: context.getString(R.string.row_internet),
             cards.filter { it.categories.contains("Internet") }.take(20),
         )
         return rows

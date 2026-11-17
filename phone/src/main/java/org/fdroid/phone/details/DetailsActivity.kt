@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -26,9 +27,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.core.content.ContextCompat
 import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import kotlinx.coroutines.launch
 import org.fdroid.database.App
 import org.fdroid.database.AppVersion
+import org.fdroid.index.v2.FileV2
 import org.fdroid.phone.Fdroid
 import org.fdroid.phone.R
 import org.fdroid.phone.browse.AppRepository
@@ -75,6 +79,10 @@ class DetailsActivity : AppCompatActivity() {
     private val isTablet: Boolean
         get() = resources.configuration.smallestScreenWidthDp >= 600
     private lateinit var loading: View
+    private lateinit var progressBlock: View
+    private lateinit var downloadBar: android.widget.ProgressBar
+    private lateinit var downloadBytes: TextView
+    private lateinit var downloadPercent: TextView
 
     private var app: App? = null
     private var version: AppVersion? = null
@@ -89,19 +97,19 @@ class DetailsActivity : AppCompatActivity() {
             if (intent.getStringExtra(InstallService.EXTRA_PACKAGE) != packageName) return
             when (intent.getStringExtra(InstallService.EXTRA_STATE)) {
                 InstallService.STATE_DOWNLOADING -> {
-                    val progress = intent.getIntExtra(InstallService.EXTRA_PROGRESS, -1)
-                    val text = if (progress >= 0) {
-                        "${getString(R.string.action_install)} $progress%"
-                    } else {
-                        getString(R.string.action_install)
-                    }
-                    actions.findViewWithTag<TextView>("primary")?.text = text
+                    installing = true
+                    progressBlock.visibility = View.VISIBLE
+                    showDownloadProgress(intent)
+                    actionSignature = ""
+                    render()
                 }
-                InstallService.STATE_INSTALLING ->
-                    actions.findViewWithTag<TextView>("primary")?.text =
-                        getString(R.string.action_installing)
+                InstallService.STATE_INSTALLING -> {
+                    progressBlock.visibility = View.VISIBLE
+                    downloadPercent.text = getString(R.string.action_installing)
+                }
                 InstallService.STATE_DONE -> {
                     installing = false
+                    progressBlock.visibility = View.GONE
                     Toast.makeText(
                         this@DetailsActivity,
                         getString(R.string.install_done, app?.name ?: packageName),
@@ -110,8 +118,15 @@ class DetailsActivity : AppCompatActivity() {
                     actionSignature = ""
                     render()
                 }
+                InstallService.STATE_CANCELLED -> {
+                    installing = false
+                    progressBlock.visibility = View.GONE
+                    actionSignature = ""
+                    render()
+                }
                 InstallService.STATE_ERROR -> {
                     installing = false
+                    progressBlock.visibility = View.GONE
                     Toast.makeText(
                         this@DetailsActivity,
                         getString(
@@ -142,6 +157,13 @@ class DetailsActivity : AppCompatActivity() {
         title = findViewById(R.id.title)
         author = findViewById(R.id.author)
         actions = findViewById(R.id.actions)
+        progressBlock = findViewById(R.id.download_progress)
+        downloadBar = findViewById(R.id.download_bar)
+        downloadBytes = findViewById(R.id.download_bytes)
+        downloadPercent = findViewById(R.id.download_percent)
+        findViewById<View>(R.id.download_cancel).setOnClickListener {
+            InstallService.cancel(this, packageName)
+        }
         stats = findViewById(R.id.stats)
         description = findViewById(R.id.description)
         readMore = findViewById(R.id.read_more)
@@ -419,7 +441,7 @@ class DetailsActivity : AppCompatActivity() {
         screenshotsLoaded = true
         lifecycleScope.launch {
             val repoId = version?.repoId ?: app.repoId
-            var files = repository.artwork(repoId, packageName)
+            var files = repository.screenshots(repoId, packageName)
             if (files.isEmpty()) {
                 // This index carries no screenshot entries at all, so the carousel
                 // falls back to the wide store artwork the app does have.
@@ -440,24 +462,74 @@ class DetailsActivity : AppCompatActivity() {
             }
             val shots = files.toList()
             shots.forEachIndexed { index, file ->
-                val image = ImageView(this@DetailsActivity)
-                image.scaleType = ImageView.ScaleType.CENTER_CROP
-                image.setBackgroundResource(R.color.card_image_background)
-                val params = if (isTablet) {
-                    LinearLayout.LayoutParams(dp(300), dp(169))
-                } else {
-                    LinearLayout.LayoutParams(dp(220), dp(124))
-                }
-                params.marginEnd = dp(10)
-                image.layoutParams = params
-                Fdroid.imageModel(repoId, file)?.let { model ->
-                    Glide.with(this@DetailsActivity).load(model).into(image)
-                }
-                image.setOnClickListener {
-                    startActivity(ScreenshotActivity.intent(this@DetailsActivity, repoId, shots, index))
-                }
-                screenshots.addView(image)
+                addScreenshot(repoId, file, shots, index)
             }
+        }
+    }
+
+    /**
+     * Screenshots are mostly portrait, so a fixed wide frame cropped them to a
+     * pointless middle slice. The thumbnail keeps a fixed height and takes its
+     * width from the screenshot's own aspect ratio once it is loaded, which is
+     * how the store shows them without cutting anything off.
+     */
+    private fun addScreenshot(repoId: Long, file: FileV2, shots: List<FileV2>, index: Int) {
+        val frameHeight = dp(if (isTablet) 300 else 200)
+        val maxWidth = dp(if (isTablet) 480 else 400)
+        val image = ImageView(this).apply {
+            // The frame follows the screenshot's ratio, so this does not crop;
+            // only artwork wider than the frame limit gets trimmed at the sides.
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setBackgroundResource(R.color.card_image_background)
+            layoutParams = LinearLayout.LayoutParams(frameHeight, frameHeight).apply {
+                marginEnd = dp(10)
+            }
+            setOnClickListener {
+                startActivity(ScreenshotActivity.intent(this@DetailsActivity, repoId, shots, index))
+            }
+        }
+        screenshots.addView(image)
+        val model = Fdroid.imageModel(repoId, file) ?: return
+        Glide.with(this).load(model).into(
+            object : CustomTarget<Drawable>(maxWidth, frameHeight) {
+                override fun onResourceReady(resource: Drawable, transition: Transition<in Drawable>?) {
+                    image.setImageDrawable(resource)
+                    val width = resource.intrinsicWidth
+                    val height = resource.intrinsicHeight
+                    if (width <= 0 || height <= 0) return
+                    val scaled = (frameHeight.toFloat() * width / height).toInt()
+                        .coerceIn(dp(90), maxWidth)
+                    image.layoutParams = LinearLayout.LayoutParams(scaled, frameHeight).apply {
+                        marginEnd = dp(10)
+                    }
+                }
+
+                override fun onLoadCleared(placeholder: Drawable?) {
+                    image.setImageDrawable(placeholder)
+                }
+            },
+        )
+    }
+
+    private fun showDownloadProgress(intent: Intent) {
+        val percent = intent.getIntExtra(InstallService.EXTRA_PROGRESS, -1)
+        val bytes = intent.getLongExtra(InstallService.EXTRA_BYTES, -1)
+        val total = intent.getLongExtra(InstallService.EXTRA_TOTAL, -1)
+        downloadBar.isIndeterminate = percent < 0
+        if (percent >= 0) downloadBar.progress = percent
+        downloadPercent.text = if (percent >= 0) {
+            getString(R.string.download_percent, percent)
+        } else {
+            getString(R.string.download_pending)
+        }
+        downloadBytes.text = if (bytes >= 0 && total > 0) {
+            getString(
+                R.string.download_bytes,
+                android.text.format.Formatter.formatFileSize(this, bytes),
+                android.text.format.Formatter.formatFileSize(this, total),
+            )
+        } else {
+            ""
         }
     }
 
@@ -476,7 +548,8 @@ class DetailsActivity : AppCompatActivity() {
 
         actions.removeAllViews()
         when {
-            installing -> addAction(getString(R.string.action_installing), primary = true) {}
+            // While downloading the progress block above takes the place of the button.
+            installing -> {}
             installedCode == null ->
                 addAction(getString(R.string.action_install), primary = true) { install() }
             availableCode != null && availableCode > installedCode ->
@@ -541,6 +614,16 @@ class DetailsActivity : AppCompatActivity() {
 
     private fun uninstall() {
         try {
+            org.fdroid.phone.history.InstallHistory.record(
+                this,
+                org.fdroid.phone.history.InstallHistory.Event(
+                    packageName = packageName,
+                    name = app?.name ?: packageName,
+                    versionName = repository.installedVersionName(packageName),
+                    action = org.fdroid.phone.history.InstallHistory.ACTION_UNINSTALLED,
+                    timestamp = System.currentTimeMillis(),
+                ),
+            )
             startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")))
         } catch (e: Exception) {
             Toast.makeText(this, e.message, Toast.LENGTH_LONG).show()

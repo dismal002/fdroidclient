@@ -18,47 +18,56 @@
             android:orientation="vertical">
 
             <LinearLayout
-                android:id="@+id/search_field"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginStart="12dp"
-                android:layout_marginTop="10dp"
-                android:layout_marginEnd="12dp"
-                android:background="@drawable/bg_phone_search"
-                android:clickable="true"
-                android:focusable="true"
+                android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp">
+                android:paddingStart="4dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="12dp">
 
                 <ImageView
                     android:id="@+id/menu_button"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:background="?android:attr/selectableItemBackgroundBorderless"
                     android:clickable="true"
                     android:contentDescription="@string/phone_menu"
                     android:focusable="true"
+                    android:padding="13dp"
                     android:src="@drawable/ic_menu"
-                    android:tint="#ff757575" />
+                    android:tint="#ffffffff" />
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/search_field"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="2dp"
                     android:layout_weight="1"
-                    android:text="@string/brand"
-                    android:textColor="#ff757575"
-                    android:textSize="18sp" />
+                    android:background="@drawable/bg_phone_search"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp">
 
-                <ImageView
-                    android:id="@+id/search_mic"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/ic_mic"
-                    android:tint="#ff757575" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/brand"
+                        android:textColor="#ff757575"
+                        android:textSize="18sp" />
+
+                    <ImageView
+                        android:id="@+id/search_mic"
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_mic"
+                        android:tint="#ff757575" />
+                </LinearLayout>
             </LinearLayout>
 
             <LinearLayout

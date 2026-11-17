@@ -16,10 +16,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import org.fdroid.download.Downloader
 import org.fdroid.index.v2.FileV1
 import org.fdroid.phone.Fdroid
 import org.fdroid.phone.R
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.io.IOException
 import java.security.MessageDigest
 
@@ -45,11 +47,15 @@ class InstallService : Service() {
         const val EXTRA_STATE = "org.fdroid.phone.STATE"
         const val EXTRA_PROGRESS = "org.fdroid.phone.PROGRESS"
         const val EXTRA_MESSAGE = "org.fdroid.phone.MESSAGE"
+        const val EXTRA_BYTES = "org.fdroid.phone.BYTES"
+        const val EXTRA_TOTAL = "org.fdroid.phone.TOTAL"
+        const val ACTION_CANCEL = "org.fdroid.phone.CANCEL"
 
         const val STATE_DOWNLOADING = "downloading"
         const val STATE_INSTALLING = "installing"
         const val STATE_DONE = "done"
         const val STATE_ERROR = "error"
+        const val STATE_CANCELLED = "cancelled"
 
         private const val CHANNEL_ID = "installs"
         private const val NOTIFICATION_ID = 4711
@@ -64,6 +70,29 @@ class InstallService : Service() {
                 NotificationManager.IMPORTANCE_LOW,
             )
             manager.createNotificationChannel(channel)
+        }
+
+        /** Downloads in flight, so the progress bar's cancel button can stop them. */
+        private val activeDownloads = ConcurrentHashMap<String, Downloader>()
+        private val cancelled = java.util.Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
+
+        fun cancel(context: Context, packageName: String) {
+            context.startService(
+                Intent(context, InstallService::class.java)
+                    .setAction(ACTION_CANCEL)
+                    .putExtra(EXTRA_PACKAGE, packageName),
+            )
+        }
+
+        private fun cancelDownload(packageName: String) {
+            cancelled.add(packageName)
+            activeDownloads.remove(packageName)?.let { downloader ->
+                try {
+                    downloader.close()
+                } catch (e: Exception) {
+                    // The download thread reports the failure itself.
+                }
+            }
         }
 
         fun start(context: Context, request: InstallRequest) {
@@ -86,6 +115,11 @@ class InstallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val packageName = intent?.getStringExtra(EXTRA_PACKAGE) ?: return START_NOT_STICKY
+        if (intent.action == ACTION_CANCEL) {
+            cancelDownload(packageName)
+            broadcast(packageName, STATE_CANCELLED, -1)
+            return START_NOT_STICKY
+        }
         val label = intent.getStringExtra("label") ?: packageName
         startForeground(NOTIFICATION_ID, notification(getString(R.string.install_preparing, label), -1))
         scope.launch { downloadAndInstall(packageName, label, intent) }
@@ -99,6 +133,13 @@ class InstallService : Service() {
             val fileName = intent.getStringExtra("fileName") ?: throw IOException("No file name")
             val sha256 = intent.getStringExtra("sha256")
             val size = intent.getLongExtra("size", 0L)
+            val versionName = intent.getStringExtra("versionName") ?: ""
+            val wasInstalled = try {
+                packageManager.getPackageInfo(packageName, 0)
+                true
+            } catch (e: Exception) {
+                false
+            }
             val repo = Fdroid.repo(repoId) ?: throw IOException("Repository not found")
 
             broadcast(packageName, STATE_DOWNLOADING, 0)
@@ -111,13 +152,19 @@ class InstallService : Service() {
                 *fileName.split("/").toTypedArray(),
             )
             val downloader = Fdroid.downloaderFactory.create(repo, uri, indexFile, apkFile)
+            activeDownloads[packageName] = downloader
             downloader.setListener { bytesRead, totalBytes ->
+                // close() alone does not interrupt a running read on every platform,
+                // so the cancel button also aborts from the next progress callback.
+                if (cancelled.contains(packageName)) throw IOException("Cancelled")
                 val progress = if (totalBytes > 0) (bytesRead * 100 / totalBytes).toInt() else -1
-                broadcast(packageName, STATE_DOWNLOADING, progress)
+                broadcast(packageName, STATE_DOWNLOADING, progress, bytesRead = bytesRead, totalBytes = totalBytes)
                 updateNotification(getString(R.string.install_downloading, label), progress)
             }
             downloader.download()
+            activeDownloads.remove(packageName)
             downloader.close()
+            if (cancelled.remove(packageName)) throw IOException("Cancelled")
 
             if (!sha256.isNullOrBlank() && !sha256(apkFile).equals(sha256, ignoreCase = true)) {
                 throw IOException("Checksum mismatch")
@@ -125,16 +172,28 @@ class InstallService : Service() {
 
             broadcast(packageName, STATE_INSTALLING, -1)
             updateNotification(getString(R.string.install_installing, label), -1)
-            commitInstallSession(packageName, apkFile)
+            commitInstallSession(packageName, apkFile, label, versionName, wasInstalled)
         } catch (e: Exception) {
-            broadcast(packageName, STATE_ERROR, -1, e.message ?: e.javaClass.simpleName)
+            activeDownloads.remove(packageName)
+            apkFile?.delete()
+            if (cancelled.remove(packageName)) {
+                broadcast(packageName, STATE_CANCELLED, -1)
+            } else {
+                broadcast(packageName, STATE_ERROR, -1, e.message ?: e.javaClass.simpleName)
+            }
         } finally {
             stopForeground(true)
             stopSelf()
         }
     }
 
-    private fun commitInstallSession(packageName: String, apkFile: File) {
+    private fun commitInstallSession(
+        packageName: String,
+        apkFile: File,
+        label: String,
+        installedVersionBefore: String?,
+        wasInstalled: Boolean,
+    ) {
         val installer = packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         params.setAppPackageName(packageName)
@@ -148,6 +207,10 @@ class InstallService : Service() {
             }
             val resultIntent = Intent(this, InstallResultReceiver::class.java)
                 .putExtra(EXTRA_PACKAGE, packageName)
+                .putExtra("label", packageName)
+                .putExtra("historyLabel", label)
+                .putExtra("historyVersion", installedVersionBefore)
+                .putExtra("wasInstalled", wasInstalled)
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or
                 if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
             val pendingIntent = PendingIntent.getBroadcast(this, sessionId, resultIntent, flags)
@@ -173,12 +236,16 @@ class InstallService : Service() {
         state: String,
         progress: Int,
         message: String? = null,
+        bytesRead: Long = -1,
+        totalBytes: Long = -1,
     ) {
         val intent = Intent(ACTION_INSTALL_STATE).apply {
             putExtra(EXTRA_PACKAGE, packageName)
             putExtra(EXTRA_STATE, state)
             putExtra(EXTRA_PROGRESS, progress)
             putExtra(EXTRA_MESSAGE, message)
+            putExtra(EXTRA_BYTES, bytesRead)
+            putExtra(EXTRA_TOTAL, totalBytes)
         }
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
     }
