@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Play Store (2015) phone palette -->
+    <color name="play_green">#ff689f38</color>
+    <color name="play_green_dark">#ff558b2f</color>
+    <color name="play_green_light">#ffaed581</color>
+    <color name="play_page">#ffeeeeee</color>
+    <color name="play_card">#ffffffff</color>
+    <color name="play_text_primary">#ff212121</color>
+    <color name="play_text_secondary">#ff757575</color>
+    <color name="play_divider">#ffdddddd</color>
+    <color name="play_field">#ffffffff</color>
+    <color name="play_whats_new">#ffdcedc8</color>
+
+    <!-- legacy TV names kept so the shared code compiles -->
+    <color name="tv_background">#ffeeeeee</color>
+    <color name="guide_rail">#ff689f38</color>
+    <color name="details_panel">#ffffffff</color>
+    <color name="card_image_background">#fff5f5f5</color>
+    <color name="guide_text_default">#ffffffff</color>
+    <color name="guide_text_focused">#ffffffff</color>
+    <color name="search_orb">#ff689f38</color>
+    <color name="search_orb_focused">#ff558b2f</color>
+    <color name="card_info">#ffffffff</color>
+    <color name="card_title">#ff212121</color>
+    <color name="card_subtitle">#ff757575</color>
+    <color name="card_status">#ff689f38</color>
+    <color name="action_selected">#ff558b2f</color>
+    <color name="text_primary">#ff212121</color>
+    <color name="text_secondary">#ff757575</color>
+    <color name="accent_green">#ff689f38</color>
+    <color name="accent_blue">#ff00796b</color>
+    <color name="badge_background">#ffefefef</color>
+    <color name="play_appbar">#ff37474f</color>
+    <color name="play_section">#ff00897b</color>
+    <color name="settings_footer">#ffe0e0e0</color>
+    <!-- Android Wear (Play-Wear) dark palette -->
+    <color name="wear_background">#ff263238</color>
+    <color name="wear_band">#1fffffff</color>
+    <color name="wear_text">#ffffffff</color>
+    <color name="wear_text_secondary">#b3ffffff</color>
+    <color name="wear_divider">#33ffffff</color>
+    <color name="wear_circle">#33ffffff</color>
+    <color name="wear_progress_track">#40ffffff</color>
+    <color name="wear_accent">#ff689f38</color>
+</resources>

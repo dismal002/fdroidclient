@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Dark, chrome-less screen: on a watch the app fills the whole round display. -->
+    <style name="Theme.FdroidWear" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/wear_background</item>
+        <item name="colorPrimaryDark">@color/wear_background</item>
+        <item name="colorAccent">@color/wear_accent</item>
+        <item name="android:windowBackground">@color/wear_background</item>
+        <item name="android:statusBarColor">@color/wear_background</item>
+        <item name="android:navigationBarColor">@color/wear_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
